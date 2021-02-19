@@ -16,14 +16,8 @@
             [status-im.utils.fx :as fx]
             [status-im.utils.types :as types]))
 
-(fx/defn handle-chats [cofx chats]
-  (models.chat/ensure-chats cofx chats))
-
 (fx/defn handle-contacts [cofx contacts]
   (models.contact/ensure-contacts cofx contacts))
-
-(fx/defn handle-message [cofx message]
-  (models.message/receive-one cofx message))
 
 (fx/defn handle-community [cofx community]
   (models.communities/handle-community cofx community))
@@ -43,8 +37,10 @@
 (fx/defn handle-filters-removed [cofx filters]
   (models.filters/handle-filters-removed cofx filters))
 
+(def debug? ^boolean js/goog.DEBUG)
+
 (fx/defn process-response
-  {:events [::process]}
+  {:events [:process-response]}
   [cofx ^js response-js]
   (let [^js communities (.-communities response-js)
         ^js requests-to-join-community (.-requestsToJoinCommunity response-js)
@@ -61,20 +57,20 @@
       (let [installations-clj (types/js->clj installations)]
         (js-delete response-js "installations")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (models.pairing/handle-installations installations-clj)))
 
       (seq contacts)
       (let [contacts-clj (types/js->clj contacts)]
         (js-delete response-js "contacts")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-contacts (map data-store.contacts/<-rpc contacts-clj))))
 
       (seq communities)
       (let [community (.pop communities)]
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-community (types/js->clj community))))
       (seq requests-to-join-community)
       (let [request (.pop requests-to-join-community)]
@@ -82,46 +78,45 @@
                   {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
                   (handle-request-to-join-community (types/js->clj request))))
       (seq chats)
-      (let [chats-clj (types/js->clj chats)]
+      (do
         (js-delete response-js "chats")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
-                  (handle-chats (map #(-> %
-                                          (data-store.chats/<-rpc)
-                                          (dissoc :unviewed-messages-count))
-                                     chats-clj))))
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
+                  #(when debug? (assoc-in % [:db :signal-debug :process-chats] (count chats)))
+                  (models.chat/ensure-chats (map #(-> %
+                                                      (data-store.chats/<-rpc)
+                                                      ;;TODO why here?
+                                                      (dissoc :unviewed-messages-count))
+                                                 (types/js->clj chats)))))
 
       (seq messages)
-      (let [message (.pop messages)]
-        (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
-                  (handle-message (-> message (types/js->clj) (data-store.messages/<-rpc)))))
+      (models.message/receive-many cofx response-js)
 
       (seq emoji-reactions)
       (let [reactions (types/js->clj emoji-reactions)]
         (js-delete response-js "emojiReactions")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-reactions (map data-store.reactions/<-rpc reactions))))
 
       (seq invitations)
       (let [invitations (types/js->clj invitations)]
         (js-delete response-js "invitations")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-invitations (map data-store.invitations/<-rpc invitations))))
       (seq filters)
       (let [filters (types/js->clj filters)]
         (js-delete response-js "filters")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters filters)))
 
       (seq removed-filters)
       (let [removed-filters (types/js->clj removed-filters)]
         (js-delete response-js "removedFilters")
         (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters-removed filters))))))
 
 (fx/defn remove-hash
