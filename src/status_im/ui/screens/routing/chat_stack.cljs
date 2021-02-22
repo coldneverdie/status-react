@@ -85,12 +85,11 @@
                     :top    false}
         :component membership/membership}]))])
 
-
 (defonce bottom-tabs (navigation/create-bottom-tabs))
 
-(defn tabbar [props]
- (reagent/as-element
-  [react/view]))
+(defn tabbar [_]
+  (reagent/as-element
+   [react/view]))
 
 (defn chat-stack []
   [bottom-tabs {:initial-route-name :home
