@@ -218,7 +218,7 @@
          :scrollIndicatorInsets        {:top bottom-space} ;;ios only
          :keyboardDismissMode          "interactive"
          ;;TODO experiment with that
-         :initialNumToRender           5
+         ;:initialNumToRender           5
          :keyboard-should-persist-taps :handled})])))
 
 (defn bottom-sheet [input-bottom-sheet]
