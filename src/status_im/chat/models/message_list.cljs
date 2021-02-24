@@ -171,9 +171,11 @@
     (update-message tree prepared-message)))
 
 (defn add [message-list message]
-  (println "ADD" (get-in message [:content :text]) (and message-list (.-length message-list)) (:clock-value message) (:clock-value @state/first-not-visible-item) (- (:clock-value message) (:clock-value @state/first-not-visible-item) ))
-  (insert-message (or message-list (rb-tree compare-fn))
-                  (prepare-message message)))
+  (let [;n (re-frame.interop/now)
+        res (insert-message (or message-list (rb-tree compare-fn))
+                        (prepare-message message))]
+    ;(println "ADD2" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
+    res))
 
 (defn add-many [message-list messages]
   (reduce add

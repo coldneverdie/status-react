@@ -140,11 +140,10 @@
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
   [{:keys [db] :as cofx} chat-id]
-  (println "LOAD MORE" (get-in db [:pagination-info chat-id :messages-initialized?])
-           (get-in db [:pagination-info chat-id :all-loaded?])
-           (get-in db [:pagination-info chat-id :loading-messages?]))
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
-    (when-not (get-in db [:pagination-info chat-id :loading-messages?])
+    (when-not (or
+               (get-in db [:pagination-info chat-id :processing?])
+               (get-in db [:pagination-info chat-id :loading-messages?]))
       (let [cursor (get-in db [:pagination-info chat-id :cursor])
             load-messages-fx (data-store.messages/messages-by-chat-id-rpc
                               chat-id

@@ -42,20 +42,23 @@
                           :peers-count peers-count)}
               (mailserver/peers-summary-change previous-summary))))
 
-(def prev-json (atom nil))
-
 (defn sanitize-messages [{:keys [db]} response-js]
   (let [current-chat-id (:current-chat-id db)
         cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
     (when (.-messages response-js)
-      (println "BEFORE" (count (.-messages response-js)))
-      (set! (.-messages response-js) (.filter (.-messages response-js)
-                                              #(and (= (.-chatId %) current-chat-id)
-                                                    (>= (.-clock %) cursor-clock-value))))
-      (.sort (.-messages response-js) (fn [a b] (< (.-clock a) (.-clock b))))
-      (println "AFTER" (count (.-messages response-js))))
+      ;(println "==================================================")
+      ;(println "BEFORE" (count (.-messages response-js)))
+      (let [];n (re-frame.interop/now)]
+        (set! (.-messages response-js) (.filter (.-messages response-js)
+                                                #(and (= (.-chatId %) current-chat-id)
+                                                      (>= (.-clock %) cursor-clock-value)))))
+        ;(println "filter" (- (re-frame.interop/now) n)))
+      (let [];n (re-frame.interop/now)]
+        (set! (.-messages response-js) (.sort (.-messages response-js) (fn [a b]
+                                                                         (- (.-clock b) (.-clock a)))))))
+        ;(println "sort" (- (re-frame.interop/now) n)))
+      ;(println "AFTER" (count (.-messages response-js))))
     response-js))
-
 
 (fx/defn process
   {:events [:signals/signal-received]}
@@ -63,13 +66,9 @@
   ;; We only convert to clojure when strictly necessary or we know it
   ;; won't impact performance, as it is a fairly costly operation on large-ish
   ;; data structures
-  (let [
-        ^js data (.parse js/JSON event-str)
+  (let [^js data (.parse js/JSON event-str)
         ^js event-js (.-event data)
         type (.-type data)]
-    (when (= type "messages.new")
-      (println "PROCESS" (= event-str @prev-json))
-      (reset! prev-json event-str))
     (case type
       "node.login"         (status-node-started cofx (js->clj event-js :keywordize-keys true))
       "envelope.sent"      (transport.message/update-envelopes-status cofx (:ids (js->clj event-js :keywordize-keys true)) :sent)

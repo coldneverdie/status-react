@@ -102,8 +102,10 @@
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
 (defn add-message [db timeline-message message-js chat-id message-id acc]
-  (let [{:keys [transaction-hash alias replace from] :as message}
+  (let [;n (re-frame.interop/now)
+        {:keys [transaction-hash alias replace from] :as message}
         (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
+        ;_ (println "js->clj" (- (re-frame.interop/now) n))]
     (if (message-loaded? db chat-id message-id)
       ;; If the message is already loaded, it means it's an update, that
       ;; happens when a message that was missing a reply had the reply
@@ -166,21 +168,22 @@
       acc)))
 
 (defn receive-many [{:keys [db]} ^js response-js]
-  (println "MESSAGES" (count (.-messages response-js)))
   (let [current-chat-id (:current-chat-id db)
         cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
-    (when (and (.-messages response-js) (> (count (.-messages response-js)) 20))
-      (println "MESSAGES BEFORE" (count (.-messages response-js)))
+    (when (and (.-messages response-js) (> (count (.-messages response-js)) 5))
+      ;(println "MESSAGES BEFORE" (count (.-messages response-js)))
       (set! (.-messages response-js) (.filter (.-messages response-js)
                                               #(and (= (.-chatId %) current-chat-id)
-                                                    (>= (.-clock %) cursor-clock-value))))
-      (println "AFTER BEFORE" (count (.-messages response-js))))
+                                                    (>= (.-clock %) cursor-clock-value)))))
+      ;(println "AFTER BEFORE" (count (.-messages response-js))))
     (let [
           messages-js ^js (.splice (.-messages response-js) 0 10)
+          ;n (re-frame.interop/now)
           {:keys [db _ chats senders transactions]}
           (reduce reduce-js-messages
                   {:db db :replaced #{} :chats #{} :senders #{} :transactions #{}}
                   messages-js)]
+          ;_ (println "reduce" (- (re-frame.interop/now) n))]
       ;;we want to render new messages as soon as possible so we dispatch later all other events which can be handled async
       {:utils/dispatch-later (concat [{:ms 20 :dispatch [:process-response response-js]}]
                                      (when (and current-chat-id
@@ -198,7 +201,7 @@
                                          {:ms 60 :dispatch [:watch-tx transaction-hash]}))
                                      (when (seq chats)
                                        [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
-       :db db})))
+       :db (assoc-in db [:pagination-info current-chat-id :processing?] (> (count (.-messages response-js)) 0))})))
 
 ;;;; Send message
 (fx/defn update-db-message-status
