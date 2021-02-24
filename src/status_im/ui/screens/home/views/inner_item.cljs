@@ -13,7 +13,8 @@
             [status-im.ui.components.icons.icons :as icons]
             [status-im.utils.contenthash :as contenthash]
             [status-im.utils.core :as utils]
-            [status-im.utils.datetime :as time]))
+            [status-im.utils.datetime :as time]
+            [reagent.core :as reagent]))
 
 (defn mention-element [from]
   @(re-frame/subscribe [:contacts/contact-name-by-identity from]))
@@ -177,6 +178,7 @@
       :on-press                  #(do
                                     (re-frame/dispatch [:dismiss-keyboard])
                                     (re-frame/dispatch-sync [:chat.ui/navigate-to-chat chat-id])
+                                    (reagent/flush)
                                     (re-frame/dispatch [:search/home-filter-changed nil])
                                     (re-frame/dispatch [:chat.ui/mark-all-read-pressed chat-id]))
       :on-long-press             #(re-frame/dispatch [:bottom-sheet/show-sheet

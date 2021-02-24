@@ -182,7 +182,8 @@
         current-chat-id    @(re-frame/subscribe [:chats/current-chat-id])
         messages           @(re-frame/subscribe [:chats/chat-messages-stream current-chat-id])
         no-messages?       @(re-frame/subscribe [:chats/chat-no-messages? current-chat-id])
-        current-public-key @(re-frame/subscribe [:multiaccount/public-key])]
+        current-public-key @(re-frame/subscribe [:multiaccount/public-key])
+        loading-messages?  @(re-frame/subscribe [:chats/loading-messages? current-chat-id])]
     (when current-chat-id
       [list/flat-list
        (merge
@@ -193,7 +194,10 @@
                                          [react/view {:style (when platform/android? {:scaleY -1})}
                                           [chat.group/group-chat-footer chat-id invitation-admin]])
          :footer                       [react/view {:style (when platform/android? {:scaleY -1})}
-                                        [chat-intro-header-container chat no-messages?]
+                                        (if loading-messages?
+                                          [react/view {:flex 1 :align-items :center :justify-content :center}
+                                           [react/activity-indicator {:animating true}]]
+                                          [chat-intro-header-container chat no-messages?])
                                         (when (= chat-type constants/one-to-one-chat-type)
                                           [invite.chat/reward-messages])]
          :data                         messages
@@ -213,6 +217,8 @@
                                         :padding-bottom 16}
          :scrollIndicatorInsets        {:top bottom-space} ;;ios only
          :keyboardDismissMode          "interactive"
+         ;;TODO experiment with that
+         :initialNumToRender           5
          :keyboard-should-persist-taps :handled})])))
 
 (defn bottom-sheet [input-bottom-sheet]

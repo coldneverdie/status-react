@@ -203,7 +203,6 @@
                                        [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
        :db (assoc-in db [:pagination-info current-chat-id :processing?] (> (count (.-messages response-js)) 0))})))
 
-;;;; Send message
 (fx/defn update-db-message-status
   [{:keys [db] :as cofx} chat-id message-id status]
   (when (get-in db [:messages chat-id message-id])

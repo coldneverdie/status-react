@@ -54,6 +54,8 @@
                      (assoc-in [:pagination-info chat-id] {:all-loaded? false
                                                            :messages-initialized? true
                                                            :cursor (clock-value->cursor last-element-clock-value)})
+                     ;;TODO this is too expensive, one insertion is 6ms, for 100 messages it will be 600ms
+                     ;;find a way how to slice
                      (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
 
 (fx/defn initialize-chats
@@ -141,16 +143,19 @@
   {:events [:chat.ui/load-more-messages]}
   [{:keys [db] :as cofx} chat-id]
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
+    ;;TODO add scroll flag, and load more only when scroll
     (when-not (or
                (get-in db [:pagination-info chat-id :processing?])
                (get-in db [:pagination-info chat-id :loading-messages?]))
       (let [cursor (get-in db [:pagination-info chat-id :cursor])
-            load-messages-fx (data-store.messages/messages-by-chat-id-rpc
-                              chat-id
-                              cursor
-                              constants/default-number-of-messages
-                              #(re-frame/dispatch [::messages-loaded chat-id session-id %])
-                              #(re-frame/dispatch [::failed-loading-messages chat-id session-id %]))]
+            load-messages-fx (merge
+                              {:db (assoc-in db [:pagination-info chat-id :loading-messages?] true)}
+                              (data-store.messages/messages-by-chat-id-rpc
+                               chat-id
+                               cursor
+                               constants/default-number-of-messages
+                               #(re-frame/dispatch [::messages-loaded chat-id session-id %])
+                               #(re-frame/dispatch [::failed-loading-messages chat-id session-id %])))]
         (fx/merge cofx
                   load-messages-fx
                   (reactions/load-more-reactions cursor chat-id)

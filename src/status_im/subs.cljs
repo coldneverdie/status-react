@@ -890,6 +890,12 @@
    (get-in pagination-info [chat-id :all-loaded?])))
 
 (re-frame/reg-sub
+ :chats/loading-messages?
+ :<- [::pagination-info]
+ (fn [pagination-info [_ chat-id]]
+   (get-in pagination-info [chat-id :loading-messages?])))
+
+(re-frame/reg-sub
  :chats/public?
  :<- [::chats]
  (fn [chats [_ chat-id]]

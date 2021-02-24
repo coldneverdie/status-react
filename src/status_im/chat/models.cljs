@@ -249,7 +249,8 @@
   [{:keys [db] :as cofx} chat-id]
   (fx/merge cofx
             ;;we want to render chat screen first and then render messages
-            {:utils/dispatch-later [{:ms 20 :dispatch [:load-messages chat-id]}]}
+            ;;{:utils/dispatch-later [{:ms 20 :dispatch [:load-messages chat-id]}]}
+            (loading/load-messages chat-id)
             (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
               (transport.filters/load-chat chat-id))))
 
