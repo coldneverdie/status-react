@@ -57,6 +57,7 @@
                                limit
                                on-success
                                on-failure]
+  (println "load messages" cursor)
   {::json-rpc/call [{:method (json-rpc/call-ext-method "chatMessages")
                      :params [chat-id cursor limit]
                      :on-success (fn [result]

@@ -157,8 +157,9 @@
                 (when (and first-not-visible
                            (= :message (:type first-not-visible)))
                   first-not-visible))))
-    (println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item)))
-  (debounce/debounce-and-dispatch [:chat.ui/message-visibility-changed e] 5000))
+    (println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
+;; TODO do not offload because it works sometimes unexpected, and actually it seems to better to have large list and don't reorganize it
+  ;(debounce/debounce-and-dispatch [:chat.ui/message-visibility-changed e] 5000))
 
 (defn render-fn [{:keys [outgoing type] :as message} idx _ {:keys [group-chat public? current-public-key space-keeper chat-id]}]
   [react/view {:style (when platform/android? {:scaleY -1})}
