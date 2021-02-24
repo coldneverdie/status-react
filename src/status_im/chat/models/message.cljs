@@ -12,7 +12,9 @@
             [status-im.chat.models.mentions :as mentions]
             [clojure.string :as string]
             [status-im.contact.db :as contact.db]
-            [status-im.utils.types :as types]))
+            [status-im.utils.types :as types]
+            [status-im.ui.screens.chat.state :as view.state]
+            [status-im.chat.models.loading :as chat.loading]))
 
 (defn- message-loaded?
   [db chat-id message-id]
@@ -92,14 +94,57 @@
           {:db db}
           messages))
 
+(defn get-timeline-message [db chat-id message-js]
+  (when (and
+         (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
+         (when-let [pub-key (get-in db [:chats chat-id :profile-public-key])]
+           (contact.db/added? db pub-key)))
+    (data-store.messages/<-rpc (types/js->clj message-js))))
+
+(defn add-message [db timeline-message message-js chat-id message-id acc]
+  (let [{:keys [transaction-hash alias replace from] :as message}
+        (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
+    (if (message-loaded? db chat-id message-id)
+      ;; If the message is already loaded, it means it's an update, that
+      ;; happens when a message that was missing a reply had the reply
+      ;; coming through, in which case we just insert the new message
+      (assoc-in acc [:db :messages chat-id message-id] message)
+      (cond-> acc
+        ;;add new message to db
+        :always
+        (update-in [:db :messages chat-id] assoc message-id message)
+        :always
+        (update-in [:db :message-lists chat-id] message-list/add message)
+
+        ;;update counter
+        :always
+        (update-unviewed-count-in-db message)
+
+        ;;conj incoming transaction for :watch-tx
+        (not (string/blank? transaction-hash))
+        (update :transactions conj transaction-hash)
+
+        ;;conj sender for add-sender-to-chat-users
+        (and (not (string/blank? alias))
+             ;;TODO ask Roman if its ok, because mentions/add-searchable-phrases for every message doesn't look good
+             (not (get-in db [:chats chat-id :users from])))
+        (update :senders conj message)
+
+        ;;conj replaced messages
+        replace
+        (update :replaced conj (get-in db [:messages chat-id replace]))
+
+        ;;conj chat-id for join-time
+        :always
+        (update :chats conj chat-id)))))
+
 (defn reduce-js-messages [{:keys [db] :as acc} ^js message-js]
   (let [chat-id (.-chatId message-js)
         clock-value (.-clock message-js)
         message-id (.-id message-js)
-        timeline-message (when (and
-                                (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
-                                (contact.db/added? db (get-in db [:chats chat-id :profile-public-key])))
-                           (data-store.messages/<-rpc (types/js->clj message-js)))
+        current-chat-id (:current-chat-id db)
+        cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])
+        timeline-message (get-timeline-message db chat-id message-js)
         ;;add timeline message
         {:keys [db] :as acc} (if timeline-message
                                (add-timeline-message acc chat-id message-id timeline-message)
@@ -107,68 +152,53 @@
     ;;ignore not opened chats and earlier clock
     (if (and (get-in db [:pagination-info chat-id :messages-initialized?])
              (not (earlier-than-deleted-at? db chat-id clock-value)))
-      (let [{:keys [transaction-hash alias replace from] :as message}
-            (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
-        (if (message-loaded? db chat-id message-id)
-          ;; If the message is already loaded, it means it's an update, that
-          ;; happens when a message that was missing a reply had the reply
-          ;; coming through, in which case we just insert the new message
-          (assoc-in acc [:db :messages chat-id message-id] message)
-          (cond-> acc
-            ;;add new message to db
-            :always
-            (update-in [:db :messages chat-id] assoc message-id message)
-            :always
-            (update-in [:db :message-lists chat-id] message-list/add message)
-
-            ;;update counter
-            :always
-            (update-unviewed-count-in-db message)
-
-            ;;conj incoming transaction for :watch-tx
-            (not (string/blank? transaction-hash))
-            (update :transactions conj transaction-hash)
-
-            ;;conj sender for add-sender-to-chat-users
-            (and (not (string/blank? alias))
-                 ;;TODO ask Roman if its ok, because mentions/add-searchable-phrases for every message doesn't look good
-                 (not (get-in db [:chats chat-id :users from])))
-            (update :senders conj message)
-
-            ;;conj replaced messages
-            replace
-            (update :replaced conj (get-in db [:messages chat-id replace]))
-
-            ;;conj chat-id for join-time
-            :always
-            (update :chats conj chat-id))))
+      (if (or (not @view.state/first-not-visible-item)
+              (<= (:clock-value @view.state/first-not-visible-item)
+                  clock-value))
+        (add-message db timeline-message message-js chat-id message-id acc)
+        ;; Not in the current view, set all-loaded to false
+        ;; and offload to db and update cursor if necessary
+        {:db (cond-> (assoc-in db [:chats chat-id :all-loaded?] false)
+                    (>= clock-value cursor-clock-value)
+                    (update-in [:chats chat-id] assoc
+                                    :cursor (chat.loading/clock-value->cursor clock-value)
+                                    :cursor-clock-value clock-value))})
       acc)))
 
 (defn receive-many [{:keys [db]} ^js response-js]
-  (let [messages-js ^js (.splice (.-messages response-js) 0 10)
-        {:keys [db _ chats senders transactions]}
-        (reduce reduce-js-messages
-                {:db db :replaced #{} :chats #{} :senders #{} :transactions #{}}
-                messages-js)
-        current-chat-id (:current-chat-id db)]
-    ;;we want to render new messages as soon as possible so we dispatch later all other events which can be handled async
-    {:utils/dispatch-later (concat [{:ms 20 :dispatch [:process-response response-js]}]
-                                   (when (and current-chat-id
-                                              (get chats current-chat-id)
-                                              (not (chat-model/profile-chat? {:db db} current-chat-id)))
-                                     [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
-                                   ;;TODO it seems we need to hide them sync
-                                   #_(when (seq replaced)
-                                       [:chat/hide-messages replaced])
-                                   (when (seq senders)
-                                     [{:ms 40 :dispatch [:chat/add-senders-to-chat-users senders]}])
-                                   ;;hope there will be only a few
-                                   (when (seq transactions)
-                                     (for [transaction-hash transactions]
-                                       {:ms 60 :dispatch [:watch-tx transaction-hash]}))
-                                   (when (seq chats)
-                                     [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
-     :db db}))
+  (println "MESSAGES" (count (.-messages response-js)))
+  (let [current-chat-id (:current-chat-id db)
+        cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
+    (when (and (.-messages response-js) (> (count (.-messages response-js)) 20))
+      (println "MESSAGES BEFORE" (count (.-messages response-js)))
+      (set! (.-messages response-js) (.filter (.-messages response-js)
+                                              #(and (= (.-chatId %) current-chat-id)
+                                                    (>= (.-clock %) cursor-clock-value))))
+      (println "AFTER BEFORE" (count (.-messages response-js))))
+    (let [
+          messages-js ^js (.splice (.-messages response-js) 0 10)
+          {:keys [db _ chats senders transactions]}
+          (reduce reduce-js-messages
+                  {:db db :replaced #{} :chats #{} :senders #{} :transactions #{}}
+                  messages-js)]
+      ;;we want to render new messages as soon as possible so we dispatch later all other events which can be handled async
+      {:utils/dispatch-later (concat [{:ms 20 :dispatch [:process-response response-js]}]
+                                     (when (and current-chat-id
+                                                (get chats current-chat-id)
+                                                (not (chat-model/profile-chat? {:db db} current-chat-id)))
+                                       [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
+                                     ;;TODO it seems we need to hide them sync
+                                     #_(when (seq replaced)
+                                         [:chat/hide-messages replaced])
+                                     (when (seq senders)
+                                       [{:ms 40 :dispatch [:chat/add-senders-to-chat-users senders]}])
+                                     ;;hope there will be only a few
+                                     (when (seq transactions)
+                                       (for [transaction-hash transactions]
+                                         {:ms 60 :dispatch [:watch-tx transaction-hash]}))
+                                     (when (seq chats)
+                                       [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
+       :db db})))
 
 ;;;; Send message
 (fx/defn update-db-message-status

@@ -1,7 +1,8 @@
 (ns status-im.chat.models.message-list
   (:require [status-im.constants :as constants]
             [status-im.utils.datetime :as time]
-            ["functional-red-black-tree" :as rb-tree]))
+            ["functional-red-black-tree" :as rb-tree]
+            [status-im.ui.screens.chat.state :as state]))
 
 (defn- add-datemark [{:keys [whisper-timestamp] :as msg}]
   (assoc msg :datemark (time/day-relative whisper-timestamp)))
@@ -170,6 +171,7 @@
     (update-message tree prepared-message)))
 
 (defn add [message-list message]
+  (println "ADD" (get-in message [:content :text]) (and message-list (.-length message-list)) (:clock-value message) (:clock-value @state/first-not-visible-item) (- (:clock-value message) (:clock-value @state/first-not-visible-item) ))
   (insert-message (or message-list (rb-tree compare-fn))
                   (prepare-message message)))
 

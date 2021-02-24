@@ -156,7 +156,8 @@
                     first-not-visible (aget (.-data ^js (.-props ^js @messages-list-ref)) (inc index))]
                 (when (and first-not-visible
                            (= :message (:type first-not-visible)))
-                  first-not-visible)))))
+                  first-not-visible))))
+    (println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item)))
   (debounce/debounce-and-dispatch [:chat.ui/message-visibility-changed e] 5000))
 
 (defn render-fn [{:keys [outgoing type] :as message} idx _ {:keys [group-chat public? current-public-key space-keeper chat-id]}]
@@ -204,7 +205,7 @@
                                         :space-keeper       space-keeper
                                         :chat-id            current-chat-id}
          :render-fn                    render-fn
-         ;:on-viewable-items-changed    on-viewable-items-changed
+         :on-viewable-items-changed    on-viewable-items-changed
          :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages current-chat-id])
          :on-scroll-to-index-failed    #() ;;don't remove this
          :content-container-style      {:padding-top    (+ bottom-space 16)

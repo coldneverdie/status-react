@@ -31,31 +31,30 @@
     {:db (assoc db :chats chats
                 :chats/loading? false)}))
 
-;;TODO im not sure in which cases we want to offload message and how its useful? i feel like flatlist works good with
-;;big lists, we should retest
-#_(fx/defn handle-chat-visibility-changed
-    {:events [:chat.ui/message-visibility-changed]}
-    [{:keys [db]} ^js event]
-    (let [^js viewable-items (.-viewableItems event)
-          ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
-      ;;TODO: what if we scroll and leave the chat and open another ?
-      (when last-element
-        (let [last-element-clock-value (:clock-value (.-item last-element))
-              chat-id (:chat-id (.-item last-element))]
-          (when (and last-element-clock-value
-                     (get-in db [:pagination-info chat-id :messages-initialized?]))
-            (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
-                                            (if (<= last-element-clock-value clock-value)
-                                              (assoc acc message-id v)
-                                              acc))
-                                          {}
-                                          (get-in db [:messages chat-id]))]
-              {:db (-> db
-                       (assoc-in [:messages chat-id] new-messages)
-                       (assoc-in [:pagination-info chat-id] {:all-loaded? false
-                                                             :messages-initialized? true
-                                                             :cursor (clock-value->cursor last-element-clock-value)})
-                       (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
+(fx/defn handle-chat-visibility-changed
+  {:events [:chat.ui/message-visibility-changed]}
+  [{:keys [db]} ^js event]
+  (let [^js viewable-items (.-viewableItems event)
+        ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
+    (when last-element
+      (let [last-element-clock-value (:clock-value (.-item last-element))
+            chat-id (:chat-id (.-item last-element))]
+        (when (and last-element-clock-value
+                   (get-in db [:pagination-info chat-id :messages-initialized?])
+                   ;;do not offload on first run
+                   (> (count (get-in db [:messages chat-id])) 60))
+          (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
+                                          (if (<= last-element-clock-value clock-value)
+                                            (assoc acc message-id v)
+                                            acc))
+                                        {}
+                                        (get-in db [:messages chat-id]))]
+            {:db (-> db
+                     (assoc-in [:messages chat-id] new-messages)
+                     (assoc-in [:pagination-info chat-id] {:all-loaded? false
+                                                           :messages-initialized? true
+                                                           :cursor (clock-value->cursor last-element-clock-value)})
+                     (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
 
 (fx/defn initialize-chats
   "Initialize persisted chats on startup"

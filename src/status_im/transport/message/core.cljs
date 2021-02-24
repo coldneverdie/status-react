@@ -38,6 +38,7 @@
 
 (def debug? ^boolean js/goog.DEBUG)
 
+
 (fx/defn process-response
   {:events [:process-response]}
   [cofx ^js response-js]
@@ -51,6 +52,7 @@
         ^js filters (.-filters response-js)
         ^js removed-filters (.-removedFilters response-js)
         ^js invitations (.-invitations response-js)]
+
     (cond
       (seq installations)
       (let [installations-clj (types/js->clj installations)]
@@ -88,6 +90,7 @@
                                                  (types/js->clj chats)))))
 
       (seq messages)
+      ;;TODO drop all messages from not current chat, split status updates, handle updates separately
       (models.message/receive-many cofx response-js)
 
       (seq emoji-reactions)
