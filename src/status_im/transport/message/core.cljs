@@ -187,4 +187,4 @@
                           (types/js->clj (.-messages response-js)))]
     (apply fx/merge cofx
              (conj set-hash-fxs
-                   {:dispatch [:process-response response-js]}))))
+                   #(models.message/receive-many % response-js)))))
