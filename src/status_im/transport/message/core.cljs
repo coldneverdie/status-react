@@ -13,7 +13,11 @@
             [status-im.data-store.invitations :as data-store.invitations]
             [status-im.group-chats.core :as models.group]
             [status-im.utils.fx :as fx]
-            [status-im.utils.types :as types]))
+            [status-im.utils.types :as types]
+            [status-im.constants :as constants]
+            [status-im.multiaccounts.model :as multiaccounts.model]
+            [status-im.chat.models :as chat-model]
+            [clojure.string :as string]))
 
 (fx/defn handle-contacts [cofx contacts]
   (models.contact/ensure-contacts cofx contacts))
@@ -119,6 +123,70 @@
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters-removed filters))))))
+
+(defn sanitize-messages [{:keys [current-chat-id cursor-clock-value db] :as acc} ^js message-js]
+  ;;we need to separate messages from current chat
+  ;;update messages for timeline
+  ;;all other messages for unviewed counter ,tx and join-times-messages-checked
+  (let [chat-id (.-localChatId message-js)
+        clock (.-clock message-js)
+        message-type (.-messageType message-js)
+        from (.-from message-js)
+        new (.-new message-js)
+        current (= current-chat-id chat-id)
+        profile (chat-model/profile-chat? {:db db} chat-id)
+        tx-hash (and (.-commandParameters message-js) (.-commandParameters.transactionHash message-js))]
+    (println (not current)
+             new
+             (not profile)
+             (not (= message-type constants/message-type-private-group-system-message))
+             (not (= from (multiaccounts.model/current-public-key {:db db}))))
+    (cond-> acc
+      (and current (>= clock cursor-clock-value))
+      (update :messages conj message-js)
+
+      profile
+      (update :statuses conj message-js)
+
+      ;;update counter
+      (and (not current)
+           new
+           (not profile)
+           (not (= message-type constants/message-type-private-group-system-message))
+           (not (= from (multiaccounts.model/current-public-key {:db db}))))
+      (update-in [:db :chats chat-id :unviewed-messages-count] inc)
+
+      ;;conj incoming transaction for :watch-tx
+      (not (string/blank? tx-hash))
+      (update :transactions conj tx-hash)
+
+      :always
+      (update :chats conj chat-id))))
+
+(fx/defn process-signal
+  {:events [:process-signal]}
+  [{:keys [db] :as cofx} ^js response-js]
+  (let [current-chat-id (:current-chat-id db)
+        {:keys [db messages transactions chats]}
+        (reduce sanitize-messages
+                {:db db :chats #{} :transactions #{} :statuses [] :messages []
+                 :current-chat-id current-chat-id
+                 :cursor-clock-value current-chat-id}
+                (.-messages response-js))]
+    (when (seq messages)
+      (set! (.-messages response-js)
+            (.sort (array-seq messages)
+                   (fn [a b]
+                     (- (.-clock b) (.-clock a))))))
+    (fx/merge cofx
+              {:db db
+               :utils/dispatch-later (concat []
+                                             (when (seq transactions)
+                                               (for [transaction-hash transactions]
+                                                 {:ms 60 :dispatch [:watch-tx transaction-hash]}))
+                                             (when (seq chats)
+                                               [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))}
+              (process-response response-js))))
 
 (fx/defn remove-hash
   [{:keys [db] :as cofx} envelope-hash]

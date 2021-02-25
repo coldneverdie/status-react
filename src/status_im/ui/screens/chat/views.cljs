@@ -289,7 +289,8 @@
                                       :chat-id            chat-id}
        :render-fn                    render-fn
        :on-viewable-items-changed    on-viewable-items-changed
-       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
+       :on-end-reached               #(when @state/scrolling
+                                        (re-frame/dispatch [:chat.ui/load-more-messages chat-id]))
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}

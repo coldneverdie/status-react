@@ -1,6 +1,5 @@
 (ns status-im.chat.models.message
-  (:require [re-frame.core :as re-frame]
-            [status-im.chat.models :as chat-model]
+  (:require [status-im.chat.models :as chat-model]
             [status-im.chat.models.message-list :as message-list]
             [status-im.constants :as constants]
             [status-im.data-store.messages :as data-store.messages]
@@ -24,42 +23,22 @@
   [db chat-id clock-value]
   (>= (get-in db [:chats chat-id :deleted-at-clock-value]) clock-value))
 
-(defn update-unviewed-count-in-db
-  [{:keys [db] :as acc} {:keys [chat-id from message-type new?]}]
-  (if (or (= message-type constants/message-type-private-group-system-message)
-          (= from (multiaccounts.model/current-public-key {:db db}))
-          (chat-model/profile-chat? {:db db} chat-id)
-          (= (:current-chat-id db) chat-id))
-    acc
-    (cond-> acc
-      new?
-      (update-in [:db :chats chat-id :unviewed-messages-count] inc))))
-
 (defn add-timeline-message [acc chat-id message-id message]
   (-> acc
       (update-in [:db :messages chat-id] assoc message-id message)
       (update-in [:db :message-lists chat-id] message-list/add message)))
 
+;;TODO this is too expensive, probably we could mark message somehow and just hide it in the UI
 (fx/defn rebuild-message-list
   [{:keys [db]} chat-id]
   {:db (assoc-in db [:message-lists chat-id]
                  (message-list/add-many nil (vals (get-in db [:messages chat-id]))))})
 
-(fx/defn hidden-message-marked-as-seen
-  {:events [::hidden-message-marked-as-seen]}
-  [{:keys [db] :as cofx} chat-id _ hidden-message-count]
-  (when (= 1 hidden-message-count)
-    {:db (update-in db [:chats chat-id]
-                    update
-                    :unviewed-messages-count dec)}))
-
-(fx/defn hide-message
+(defn hide-message
   "Hide chat message, rebuild message-list"
-  [{:keys [db] :as cofx} chat-id {:keys [seen message-id]}]
-  (fx/merge cofx
-            {:db (update-in db [:messages chat-id] dissoc message-id)}
-            (data-store.messages/mark-messages-seen chat-id [message-id] #(re-frame/dispatch [::hidden-message-marked-as-seen %1 %2 %3]))
-            (rebuild-message-list chat-id)))
+  [{:keys [db]} chat-id message-id]
+  ;;TODO this is too expensive, probably we could mark message somehow and just hide it in the UI
+  (rebuild-message-list {:db (update-in db [:messages chat-id] dissoc message-id)} chat-id))
 
 (fx/defn join-times-messages-checked
   "The key :might-have-join-time-messages? in public chats signals that
@@ -103,7 +82,7 @@
 
 (defn add-message [db timeline-message message-js chat-id message-id acc]
   (let [;n (re-frame.interop/now)
-        {:keys [transaction-hash alias replace from] :as message}
+        {:keys [alias replace from] :as message}
         (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
         ;_ (println "js->clj" (- (re-frame.interop/now) n))]
     (if (message-loaded? db chat-id message-id)
@@ -118,30 +97,17 @@
         :always
         (update-in [:db :message-lists chat-id] message-list/add message)
 
-        ;;update counter
-        :always
-        (update-unviewed-count-in-db message)
-
-        ;;conj incoming transaction for :watch-tx
-        (not (string/blank? transaction-hash))
-        (update :transactions conj transaction-hash)
-
         ;;conj sender for add-sender-to-chat-users
         (and (not (string/blank? alias))
-             ;;TODO ask Roman if its ok, because mentions/add-searchable-phrases for every message doesn't look good
              (not (get-in db [:chats chat-id :users from])))
-        (update :senders conj message)
+        (update :senders assoc from message)
 
-        ;;conj replaced messages
         replace
-        (update :replaced conj (get-in db [:messages chat-id replace]))
-
-        ;;conj chat-id for join-time
-        :always
-        (update :chats conj chat-id)))))
+        ;;TODO this is expensive
+        (hide-message chat-id replace)))))
 
 (defn reduce-js-messages [{:keys [db] :as acc} ^js message-js]
-  (let [chat-id (.-chatId message-js)
+  (let [chat-id (.-localChatId message-js)
         clock-value (.-clock message-js)
         message-id (.-id message-js)
         current-chat-id (:current-chat-id db)
@@ -171,37 +137,29 @@
   (let [current-chat-id (:current-chat-id db)
         cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
     (when (and (.-messages response-js) (> (count (.-messages response-js)) 5))
-      ;(println "MESSAGES BEFORE" (count (.-messages response-js)))
       (set! (.-messages response-js) (.filter (.-messages response-js)
-                                              #(and (= (.-chatId %) current-chat-id)
+                                              #(and (= (.-localChatId %) current-chat-id)
                                                     (>= (.-clock %) cursor-clock-value)))))
-      ;(println "AFTER BEFORE" (count (.-messages response-js))))
-    (let [
-          messages-js ^js (.splice (.-messages response-js) 0 10)
+    ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
+    (let [messages-js ^js (.splice (.-messages response-js) 0 10)
           ;n (re-frame.interop/now)
-          {:keys [db _ chats senders transactions]}
+          {:keys [db chats senders transactions]}
           (reduce reduce-js-messages
-                  {:db db :replaced #{} :chats #{} :senders #{} :transactions #{}}
+                  {:db db :chats #{} :senders {} :transactions #{}}
                   messages-js)]
           ;_ (println "reduce" (- (re-frame.interop/now) n))]
-      ;;we want to render new messages as soon as possible so we dispatch later all other events which can be handled async
-      {:utils/dispatch-later (concat [{:ms 20 :dispatch [:process-response response-js]}]
-                                     (when (and current-chat-id
-                                                (get chats current-chat-id)
-                                                (not (chat-model/profile-chat? {:db db} current-chat-id)))
-                                       [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
-                                     ;;TODO it seems we need to hide them sync
-                                     #_(when (seq replaced)
-                                         [:chat/hide-messages replaced])
-                                     (when (seq senders)
-                                       [{:ms 40 :dispatch [:chat/add-senders-to-chat-users senders]}])
-                                     ;;hope there will be only a few
-                                     (when (seq transactions)
-                                       (for [transaction-hash transactions]
-                                         {:ms 60 :dispatch [:watch-tx transaction-hash]}))
-                                     (when (seq chats)
-                                       [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
-       :db (assoc-in db [:pagination-info current-chat-id :processing?] (> (count (.-messages response-js)) 0))})))
+      ;;we want to render new messages as soon as possible
+      ;;so we dispatch later all other events which can be handled async
+      {:utils/dispatch-later
+       (concat [{:ms 20 :dispatch [:process-response response-js]}]
+               (when (and current-chat-id
+                          (get chats current-chat-id)
+                          (not (chat-model/profile-chat? {:db db} current-chat-id)))
+                 [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
+               (when (seq senders)
+                 [{:ms 40 :dispatch [:chat/add-senders-to-chat-users (vals senders)]}]))
+       :db (assoc-in db [:pagination-info current-chat-id :processing?]
+                     (> (count (.-messages response-js)) 0))})))
 
 (fx/defn update-db-message-status
   [{:keys [db] :as cofx} chat-id message-id status]
@@ -236,9 +194,9 @@
             (rebuild-message-list chat-id)))
 
 (fx/defn send-message
-  [{:keys [db now] :as cofx} message]
+  [cofx message]
   (protocol/send-chat-messages cofx [message]))
 
 (fx/defn send-messages
-  [{:keys [db now] :as cofx} messages]
+  [cofx messages]
   (protocol/send-chat-messages cofx messages))
