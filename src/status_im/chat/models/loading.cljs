@@ -31,32 +31,33 @@
     {:db (assoc db :chats chats
                 :chats/loading? false)}))
 
-(fx/defn handle-chat-visibility-changed
-  {:events [:chat.ui/message-visibility-changed]}
-  [{:keys [db]} ^js event]
-  (let [^js viewable-items (.-viewableItems event)
-        ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
-    (when last-element
-      (let [last-element-clock-value (:clock-value (.-item last-element))
-            chat-id (:chat-id (.-item last-element))]
-        (when (and last-element-clock-value
-                   (get-in db [:pagination-info chat-id :messages-initialized?])
-                   ;;do not offload on first run
-                   (> (count (get-in db [:messages chat-id])) 60))
-          (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
-                                          (if (<= last-element-clock-value clock-value)
-                                            (assoc acc message-id v)
-                                            acc))
-                                        {}
-                                        (get-in db [:messages chat-id]))]
-            {:db (-> db
-                     (assoc-in [:messages chat-id] new-messages)
-                     (assoc-in [:pagination-info chat-id] {:all-loaded? false
-                                                           :messages-initialized? true
-                                                           :cursor (clock-value->cursor last-element-clock-value)})
-                     ;;TODO this is too expensive, one insertion is 6ms, for 100 messages it will be 600ms
-                     ;;find a way how to slice
-                     (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
+;;TODO we don't need to offload messages
+#_(fx/defn handle-chat-visibility-changed
+    {:events [:chat.ui/message-visibility-changed]}
+    [{:keys [db]} ^js event]
+    (let [^js viewable-items (.-viewableItems event)
+          ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
+      (when last-element
+        (let [last-element-clock-value (:clock-value (.-item last-element))
+              chat-id (:chat-id (.-item last-element))]
+          (when (and last-element-clock-value
+                     (get-in db [:pagination-info chat-id :messages-initialized?])
+                     ;;do not offload on first run
+                     (> (count (get-in db [:messages chat-id])) 60))
+            (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
+                                            (if (<= last-element-clock-value clock-value)
+                                              (assoc acc message-id v)
+                                              acc))
+                                          {}
+                                          (get-in db [:messages chat-id]))]
+              {:db (-> db
+                       (assoc-in [:messages chat-id] new-messages)
+                       (assoc-in [:pagination-info chat-id] {:all-loaded? false
+                                                             :messages-initialized? true
+                                                             :cursor (clock-value->cursor last-element-clock-value)})
+                       ;;TODO this is too expensive, one insertion is 6ms, for 100 messages it will be 600ms
+                       ;;find a way how to slice
+                       (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
 
 (fx/defn initialize-chats
   "Initialize persisted chats on startup"
@@ -143,10 +144,11 @@
   {:events [:chat.ui/load-more-messages]}
   [{:keys [db] :as cofx} chat-id]
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
-    ;;TODO add scroll flag, and load more only when scroll
-    (when-not (or
-               (get-in db [:pagination-info chat-id :processing?])
-               (get-in db [:pagination-info chat-id :loading-messages?]))
+    (when (and
+           chat.state/scrolling
+           (not (get-in db [:pagination-info chat-id :all-loaded?]))
+           (not (get-in db [:pagination-info chat-id :processing?]))
+           (not (get-in db [:pagination-info chat-id :loading-messages?])))
       (let [cursor (get-in db [:pagination-info chat-id :cursor])
             load-messages-fx (merge
                               {:db (assoc-in db [:pagination-info chat-id :loading-messages?] true)}
@@ -167,7 +169,7 @@
   (if-not (get-in db [:pagination-info chat-id :messages-initialized?])
     (do
      ; reset chat first-not-visible-items state
-      (chat.state/reset)
+      (chat.state/reset-visible-item)
       (fx/merge cofx
                 {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)}
                 (handle-mark-all-read chat-id)

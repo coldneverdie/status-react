@@ -67,7 +67,7 @@
 
 (defview loading-indicator []
   (letsubs [ui-status-properties [:connectivity/ui-status-properties]
-            window-width (reagent/atom 0)]
+            window-width [:dimensions/window-width]]
     (when (:loading-indicator? ui-status-properties)
       [loading-indicator-anim @window-width])))
 

@@ -1,32 +1,25 @@
 (ns status-im.chat.models.message-list
-  (:require [status-im.constants :as constants]
-            [status-im.utils.datetime :as time]
+  (:require [status-im.utils.datetime :as time]
             ["functional-red-black-tree" :as rb-tree]
             [status-im.ui.screens.chat.state :as state]))
 
 (defn- add-datemark [{:keys [whisper-timestamp] :as msg}]
-  (assoc msg :datemark (time/day-relative whisper-timestamp)))
+  (let [;n (re-frame.interop/now)
+        res (assoc msg :datemark (time/day-relative whisper-timestamp))]
+        ;_ (println "ADD :datemark" (- (re-frame.interop/now) n))]
+    res))
 
 (defn- add-timestamp [{:keys [whisper-timestamp] :as msg}]
-  (assoc msg :timestamp-str (time/timestamp->time whisper-timestamp)))
+  (let [;n (re-frame.interop/now)
+        res (assoc msg :timestamp-str (time/timestamp->time whisper-timestamp))]
+        ;_ (println "ADD :timestamp-str" (- (re-frame.interop/now) n))]
+    res))
 
-(defn prepare-message [{:keys [message-id
-                               clock-value
-                               message-type
-                               from
-                               outgoing
-                               whisper-timestamp]}]
-  (-> {:whisper-timestamp whisper-timestamp
-       :from from
-       :one-to-one? (= constants/message-type-one-to-one message-type)
-       :system-message? (= constants/message-type-private-group-system-message
-                           message-type)
-       :clock-value clock-value
-       :type :message
-       :message-id message-id
-       :outgoing (boolean outgoing)}
-      add-datemark
-      add-timestamp))
+(defn prepare-message [val]
+  (let [;n (re-frame.interop/now)
+        res (add-timestamp (add-datemark val))]
+        ;_ (println "ADD prepare-message" (- (re-frame.interop/now) n))]
+    res))
 
 ;; any message that comes after this amount of ms will be grouped separately
 (def ^:private group-ms 300000)
@@ -167,14 +160,20 @@
   this operation is O(logN) for insertion, and O(logN) for the updates, as
   we need to re-find (there's probably a better way)"
   [^js old-message-list prepared-message]
-  (let [^js tree (.insert old-message-list prepared-message prepared-message)]
-    (update-message tree prepared-message)))
+  (let [;n (re-frame.interop/now)
+        ^js tree (.insert old-message-list prepared-message prepared-message)
+        ;_ (println "ADD insert" (- (re-frame.interop/now) n))
+        ;n (re-frame.interop/now)
+        res (update-message tree prepared-message)]
+    ;(println "ADD update" (- (re-frame.interop/now) n))
+    res))
 
 (defn add [message-list message]
   (let [;n (re-frame.interop/now)
-        res (insert-message (or message-list (rb-tree compare-fn))
-                        (prepare-message message))]
-    ;(println "ADD2" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
+        mess (prepare-message message)
+        ;_ (println "ADD prepare" (- (re-frame.interop/now) n))
+        res (insert-message (or message-list (rb-tree compare-fn)) mess)]
+    ;(println "ADD" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
     res))
 
 (defn add-many [message-list messages]

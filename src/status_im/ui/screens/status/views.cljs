@@ -181,35 +181,39 @@
 
 (defn timeline []
   (let [messages @(re-frame/subscribe [:chats/timeline-messages-stream])
+        loading-messages? @(re-frame/subscribe [:chats/loading-messages? constants/timeline-chat-id])
         no-messages? @(re-frame/subscribe [:chats/chat-no-messages? constants/timeline-chat-id])
         account @(re-frame/subscribe [:multiaccount])]
     [react/view {:flex 1}
      [react/view {:height           1
                   :background-color colors/gray-lighter}]
-     (if no-messages?
-       [react/view {:padding-horizontal 32
-                    :margin-top         64}
-        [react/image {:style  {:width      140
-                               :height     140
-                               :align-self :center}
-                      :source {:uri (contenthash/url image-hash)}}]
-        [react/view (styles/descr-container)
-         [react/text {:style {:color       colors/gray
-                              :line-height 22}}
-          (if (= :timeline (:tab @state))
-            (i18n/label :t/statuses-descr)
-            (i18n/label :t/statuses-my-status-descr))]]]
-       [list/flat-list
-        {:key-fn                    #(or (:message-id %) (:value %))
-         :render-data               {:timeline (= :timeline (:tab @state))
-                                     :account  account}
-         :render-fn                 render-message
-         :data                      messages
-         ;:on-viewable-items-changed chat.views/on-viewable-items-changed
-         :on-end-reached            #(re-frame/dispatch [:chat.ui/load-more-messages constants/timeline-chat-id])
-         ;;don't remove :on-scroll-to-index-failed
-         :on-scroll-to-index-failed #()
-         :header                    [react/view {:height 8}]
-         :footer                    [react/view {:height 68}]}])
+     (if loading-messages?
+       [react/view {:flex 1 :align-items :center :justify-content :center}
+        [react/activity-indicator {:animating true}]]
+       (if no-messages?
+         [react/view {:padding-horizontal 32
+                      :margin-top         64}
+          [react/image {:style  {:width      140
+                                 :height     140
+                                 :align-self :center}
+                        :source {:uri (contenthash/url image-hash)}}]
+          [react/view (styles/descr-container)
+           [react/text {:style {:color       colors/gray
+                                :line-height 22}}
+            (if (= :timeline (:tab @state))
+              (i18n/label :t/statuses-descr)
+              (i18n/label :t/statuses-my-status-descr))]]]
+         [list/flat-list
+          {:key-fn                    #(or (:message-id %) (:value %))
+           :render-data               {:timeline (= :timeline (:tab @state))
+                                       :account  account}
+           :render-fn                 render-message
+           :data                      messages
+           ;:on-viewable-items-changed chat.views/on-viewable-items-changed
+           :on-end-reached            #(re-frame/dispatch [:chat.ui/load-more-messages constants/timeline-chat-id])
+           ;;don't remove :on-scroll-to-index-failed
+           :on-scroll-to-index-failed #()
+           :header                    [react/view {:height 8}]
+           :footer                    [react/view {:height 68}]}]))
      [components.plus-button/plus-button
       {:on-press #(re-frame/dispatch [:navigate-to :my-status])}]]))

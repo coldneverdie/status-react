@@ -160,7 +160,7 @@
         (add-message db timeline-message message-js chat-id message-id acc)
         ;; Not in the current view, set all-loaded to false
         ;; and offload to db and update cursor if necessary
-        {:db (cond-> (assoc-in db [:chats chat-id :all-loaded?] false)
+        {:db (cond-> (assoc-in db [:pagination-info chat-id :all-loaded?] false)
                     (>= clock-value cursor-clock-value)
                     (update-in [:chats chat-id] assoc
                                     :cursor (chat.loading/clock-value->cursor clock-value)
