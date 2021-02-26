@@ -154,8 +154,8 @@
                     first-not-visible (aget (.-data ^js (.-props ^js @messages-list-ref)) (inc index))]
                 (when (and first-not-visible
                            (= :message (:type first-not-visible)))
-                  first-not-visible))))
-    (println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
+                  first-not-visible))))))
+    ;(println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
 
 (defn render-fn [{:keys [outgoing type] :as message}
                  idx
@@ -256,11 +256,10 @@
         no-messages? @(re-frame/subscribe [:chats/chat-no-messages? chat-id])
         all-loaded? @(re-frame/subscribe [:chats/all-loaded? chat-id])]
     [react/view {:style (when platform/android? {:scaleY -1})}
-     (if (or loading-messages? (not chat-id))
+     (if (or loading-messages? (not chat-id) (not all-loaded?))
        [react/view {:height 324 :align-items :center :justify-content :center}
         [react/activity-indicator {:animating true}]]
-       (when all-loaded?
-         [chat-intro-header-container chat no-messages?]))
+       [chat-intro-header-container chat no-messages?])
      (when (= chat-type constants/one-to-one-chat-type)
        [invite.chat/reward-messages])]))
 
@@ -291,17 +290,9 @@
                                       :chat-id            chat-id}
        :render-fn                    render-fn
        :on-viewable-items-changed    on-viewable-items-changed
-       :on-end-reached               #(do
-                                        (println "END REACHED" @state/scrolling)
-                                        (when @state/scrolling
-                                          (re-frame/dispatch [:chat.ui/load-more-messages chat-id])))
-       :scrollEventThrottle          400
-       :onScroll                     #(do
-                                        ;(println "SCROLL " (- (.-nativeEvent.contentSize.height %) (+ (.-nativeEvent.layoutMeasurement.height %) (.-nativeEvent.contentOffset.y %))))
-                                        (when (>= (+ (.-nativeEvent.layoutMeasurement.height %) (.-nativeEvent.contentOffset.y %))
-                                                  (- (.-nativeEvent.contentSize.height %) 400))
-                                          (println "SCROLL END REACHED")
-                                          (re-frame/dispatch [:chat.ui/load-more-messages chat-id])))
+       ;;TODO this is not really working in pair with inserting new messages because we stop inserting new messages
+       ;;if they outside the viewarea, but we load more here because end is reached
+       :on-end-reached #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}

@@ -173,9 +173,9 @@
 (defn add [message-list message]
   (let [n (re-frame.interop/now)
         mess (prepare-message message)
-        _ (println "ADD prepare" (- (re-frame.interop/now) n))
+        ;_ (println "ADD prepare" (- (re-frame.interop/now) n))
         res (insert-message (or message-list (rb-tree compare-fn)) mess)]
-    (println "ADD" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
+    ;(println "ADD" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
     res))
 
 (defn add-many [message-list messages]

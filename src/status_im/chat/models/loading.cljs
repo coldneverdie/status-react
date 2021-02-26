@@ -62,7 +62,6 @@
   "Loads more messages for current chat"
   {:events [::messages-loaded]}
   [{db :db} chat-id session-id {:keys [cursor messages]}]
-  (println "LLOADED" cursor)
   (when-not (and (get-in db [:pagination-info chat-id :messages-initialized?])
                  (not= session-id
                        (get-in db [:pagination-info chat-id :messages-initialized?])))
@@ -109,7 +108,6 @@
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
   [{:keys [db] :as cofx} chat-id first-request]
-  (println "LOAD MORE")
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
     (when (and
            (not (get-in db [:pagination-info chat-id :all-loaded?]))
