@@ -25,7 +25,8 @@
             [status-im.multiaccounts.login.core :as multiaccounts.login]
             [status-im.ui.components.invite.views :as invite]
             [status-im.ui.components.topbar :as topbar]
-            [status-im.ui.components.plus-button :as components.plus-button])
+            [status-im.ui.components.plus-button :as components.plus-button]
+            [status-im.utils.platform :as platform])
   (:require-macros [status-im.utils.views :as views]))
 
 (defn welcome-image-wrapper []
@@ -194,9 +195,9 @@
 
 (defn home []
   [react/keyboard-avoiding-view {:style styles/home-container}
-   [topbar/topbar {:title             (i18n/label :t/chat)
-                   :navigation        :none
-                   :right-component   [connectivity/connectivity-button]}]
+   [topbar/topbar {:title           (str (i18n/label :t/chat) "(" platform/low-device? ")")
+                   :navigation      :none
+                   :right-component [connectivity/connectivity-button]}]
    [connectivity/loading-indicator]
    [chats-list]
    [plus-button]])

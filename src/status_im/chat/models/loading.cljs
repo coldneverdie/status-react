@@ -72,19 +72,19 @@
                        {:keys [clock-value message-id alias from]
                         :as   message}]
                     (cond-> acc
-                            (and (not (string/blank? alias))
-                                 (not (get-in db [:chats chat-id :users from])))
-                            (update :users assoc from message)
+                      (and (not (string/blank? alias))
+                           (not (get-in db [:chats chat-id :users from])))
+                      (update :users assoc from message)
 
-                            (or (nil? last-clock-value)
-                                (> last-clock-value clock-value))
-                            (assoc :last-clock-value clock-value)
+                      (or (nil? last-clock-value)
+                          (> last-clock-value clock-value))
+                      (assoc :last-clock-value clock-value)
 
-                            (nil? (get all-messages message-id))
-                            (update :new-messages conj message)
+                      (nil? (get all-messages message-id))
+                      (update :new-messages conj message)
 
-                            :always
-                            (update :all-messages assoc message-id message)))
+                      :always
+                      (update :all-messages assoc message-id message)))
                   {:all-messages already-loaded-messages
                    :users        {}
                    :new-messages []}

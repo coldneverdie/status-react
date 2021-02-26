@@ -4,7 +4,6 @@
             [status-im.constants :as constants]
             [status-im.data-store.messages :as data-store.messages]
             [status-im.ethereum.json-rpc :as json-rpc]
-            [status-im.multiaccounts.model :as multiaccounts.model]
             [status-im.transport.message.protocol :as protocol]
             [status-im.utils.fx :as fx]
             [taoensso.timbre :as log]
@@ -13,7 +12,8 @@
             [status-im.contact.db :as contact.db]
             [status-im.utils.types :as types]
             [status-im.ui.screens.chat.state :as view.state]
-            [status-im.chat.models.loading :as chat.loading]))
+            [status-im.chat.models.loading :as chat.loading]
+            [status-im.utils.platform :as platform]))
 
 (defn- message-loaded?
   [db chat-id message-id]
@@ -81,10 +81,8 @@
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
 (defn add-message [db timeline-message message-js chat-id message-id acc]
-  (let [;n (re-frame.interop/now)
-        {:keys [alias replace from] :as message}
+  (let [{:keys [alias replace from] :as message}
         (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
-        ;_ (println "js->clj" (- (re-frame.interop/now) n))]
     (if (message-loaded? db chat-id message-id)
       ;; If the message is already loaded, it means it's an update, that
       ;; happens when a message that was missing a reply had the reply
@@ -119,6 +117,7 @@
                                acc)]
     ;;ignore not opened chats and earlier clock
     (if (and (get-in db [:pagination-info chat-id :messages-initialized?])
+             ;;TODO why do we need this ?
              (not (earlier-than-deleted-at? db chat-id clock-value)))
       (if (or (not @view.state/first-not-visible-item)
               (<= (:clock-value @view.state/first-not-visible-item)
@@ -127,27 +126,26 @@
         ;; Not in the current view, set all-loaded to false
         ;; and offload to db and update cursor if necessary
         {:db (cond-> (assoc-in db [:pagination-info chat-id :all-loaded?] false)
-                    (>= clock-value cursor-clock-value)
-                    (update-in [:chats chat-id] assoc
-                                    :cursor (chat.loading/clock-value->cursor clock-value)
-                                    :cursor-clock-value clock-value))})
+               (>= clock-value cursor-clock-value)
+               (update-in [:chats chat-id] assoc
+                          :cursor (chat.loading/clock-value->cursor clock-value)
+                          :cursor-clock-value clock-value))})
       acc)))
 
 (defn receive-many [{:keys [db]} ^js response-js]
   (let [current-chat-id (:current-chat-id db)
         cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
-    (when (and (.-messages response-js) (> (count (.-messages response-js)) 5))
+    (when (.-messages response-js)
+      ;;we to filter messages by cursor-clock-value because
       (set! (.-messages response-js) (.filter (.-messages response-js)
                                               #(and (= (.-localChatId %) current-chat-id)
                                                     (>= (.-clock %) cursor-clock-value)))))
     ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
-    (let [messages-js ^js (.splice (.-messages response-js) 0 10)
-          ;n (re-frame.interop/now)
-          {:keys [db chats senders transactions]}
+    (let [messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 5 20))
+          {:keys [db chats senders]}
           (reduce reduce-js-messages
                   {:db db :chats #{} :senders {} :transactions #{}}
                   messages-js)]
-          ;_ (println "reduce" (- (re-frame.interop/now) n))]
       ;;we want to render new messages as soon as possible
       ;;so we dispatch later all other events which can be handled async
       {:utils/dispatch-later

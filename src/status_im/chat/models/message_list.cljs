@@ -1,8 +1,7 @@
 (ns status-im.chat.models.message-list
   (:require [status-im.constants :as constants]
             [status-im.utils.datetime :as time]
-            ["functional-red-black-tree" :as rb-tree]
-            [status-im.ui.screens.chat.state :as state]))
+            ["functional-red-black-tree" :as rb-tree]))
 
 (defn- add-datemark [{:keys [whisper-timestamp] :as msg}]
   (assoc msg :datemark (time/day-relative whisper-timestamp)))

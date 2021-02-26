@@ -31,7 +31,8 @@
             [status-im.ui.components.toolbar :as toolbar]
             [quo.core :as quo]
             [clojure.string :as string]
-            [status-im.constants :as constants]))
+            [status-im.constants :as constants]
+            [status-im.utils.platform :as platform]))
 
 (defn topbar [current-chat]
   [topbar/topbar
@@ -264,7 +265,7 @@
      (when (= chat-type constants/one-to-one-chat-type)
        [invite.chat/reward-messages])]))
 
-(defn list-header [{:keys [ chat-id chat-type  invitation-admin]}]
+(defn list-header [{:keys [chat-id chat-type invitation-admin]}]
   (when (= chat-type constants/private-group-chat-type)
     [react/view {:style (when platform/android? {:scaleY -1})}
      [chat.group/group-chat-footer chat-id invitation-admin]]))
@@ -277,6 +278,8 @@
     [list/flat-list
      (merge
       pan-responder
+      (when platform/low-device?
+        {:initialNumToRender 5})
       {:key-fn                       #(or (:message-id %) (:value %))
        :ref                          #(reset! messages-list-ref %)
        :header                       [list-header chat]

@@ -33,3 +33,8 @@
 
 (defn android-version>= [v]
   (and android? (>= version v)))
+
+(defn android-version< [v]
+  (and android? (>= version v)))
+
+(def low-device? (and android? (< version 10)))

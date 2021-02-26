@@ -16,7 +16,6 @@
             [status-im.utils.types :as types]
             [status-im.constants :as constants]
             [status-im.multiaccounts.model :as multiaccounts.model]
-            [status-im.chat.models :as chat-model]
             [clojure.string :as string]))
 
 (fx/defn handle-contacts [cofx contacts]
@@ -41,7 +40,6 @@
   (models.filters/handle-filters-removed cofx filters))
 
 (def debug? ^boolean js/goog.DEBUG)
-
 
 (fx/defn process-response
   {:events [:process-response]}
@@ -94,7 +92,6 @@
                                                  (types/js->clj chats)))))
 
       (seq messages)
-      ;;TODO drop all messages from not current chat, split status updates, handle updates separately
       (models.message/receive-many cofx response-js)
 
       (seq emoji-reactions)
@@ -124,23 +121,15 @@
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters-removed filters))))))
 
-(defn sanitize-messages [{:keys [current-chat-id cursor-clock-value db] :as acc} ^js message-js]
-  ;;we need to separate messages from current chat
-  ;;update messages for timeline
-  ;;all other messages for unviewed counter ,tx and join-times-messages-checked
+(defn group-by-messages-and-update-counts [{:keys [current-chat-id cursor-clock-value db] :as acc} ^js message-js]
   (let [chat-id (.-localChatId message-js)
         clock (.-clock message-js)
         message-type (.-messageType message-js)
         from (.-from message-js)
         new (.-new message-js)
         current (= current-chat-id chat-id)
-        profile (chat-model/profile-chat? {:db db} chat-id)
+        profile (models.chat/profile-chat? {:db db} chat-id)
         tx-hash (and (.-commandParameters message-js) (.-commandParameters.transactionHash message-js))]
-    (println (not current)
-             new
-             (not profile)
-             (not (= message-type constants/message-type-private-group-system-message))
-             (not (= from (multiaccounts.model/current-public-key {:db db}))))
     (cond-> acc
       (and current (>= clock cursor-clock-value))
       (update :messages conj message-js)
@@ -168,11 +157,12 @@
   [{:keys [db] :as cofx} ^js response-js]
   (let [current-chat-id (:current-chat-id db)
         {:keys [db messages transactions chats]}
-        (reduce sanitize-messages
+        (reduce group-by-messages-and-update-counts
                 {:db db :chats #{} :transactions #{} :statuses [] :messages []
                  :current-chat-id current-chat-id
                  :cursor-clock-value current-chat-id}
                 (.-messages response-js))]
+    ;;we want to sort and process only messages for current chat
     (when (seq messages)
       (set! (.-messages response-js)
             (.sort (array-seq messages)
@@ -189,7 +179,7 @@
               (process-response response-js))))
 
 (fx/defn remove-hash
-  [{:keys [db] :as cofx} envelope-hash]
+  [{:keys [db]} envelope-hash]
   {:db (update db :transport/message-envelopes dissoc envelope-hash)})
 
 (fx/defn check-confirmations
@@ -254,5 +244,5 @@
                             (set-message-envelope-hash localChatId id messageType))
                           (types/js->clj (.-messages response-js)))]
     (apply fx/merge cofx
-             (conj set-hash-fxs
-                   #(models.message/receive-many % response-js)))))
+           (conj set-hash-fxs
+                 #(models.message/receive-many % response-js)))))
