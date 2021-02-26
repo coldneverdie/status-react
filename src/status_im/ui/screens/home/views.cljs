@@ -170,10 +170,9 @@
                  (when (or (seq items) @search-active? (seq search-filter))
                    [search-input-wrapper search-filter items])
                  [referral-item/list-item]
-                 (when
-                  (and (empty? items)
-                       (or @search-active? (seq search-filter))
-                   [start-suggestion search-filter]))]
+                 (when (and (empty? items)
+                            (or @search-active? (seq search-filter)))
+                   [start-suggestion search-filter])]
         :footer                       (if (and (not hide-home-tooltip?) (not @search-active?))
                                         [home-tooltip-view]
                                         [react/view {:height 68}])}])))

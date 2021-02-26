@@ -30,7 +30,8 @@
                       {}
                       new-chats)
         chats (merge old-chats chats)]
-    {:db (assoc db :chats chats
+    {:dispatch [:start-timeline-chat]
+     :db (assoc db :chats chats
                 :chats/loading? false)}))
 
 (fx/defn initialize-chats

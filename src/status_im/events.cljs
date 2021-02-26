@@ -181,13 +181,14 @@
   {:events [:init-timeline-chat]}
   [{:keys [db] :as cofx}]
   (when-not (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
-    (fx/merge cofx
-              (fn [cofx]
-                (apply fx/merge cofx (map chat/start-profile-chat
-                                          (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
-                                                (get-in db [:multiaccount :public-key])))))
-              (chat/start-timeline-chat)
-              (chat/preload-chat-data constants/timeline-chat-id))))
+    (chat/preload-chat-data cofx constants/timeline-chat-id)
+    ;;TODO start leave on contacts management
+    #_(fx/merge cofx
+                (fn [cofx]
+                  (apply fx/merge cofx (map chat/start-profile-chat
+                                            (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
+                                                  (get-in db [:multiaccount :public-key]))))))))
+
 
 (fx/defn on-will-focus
   {:events [:screens/on-will-focus]}
