@@ -11,7 +11,6 @@
             [status-im.ui.screens.chat.sheets :as sheets]
             [quo.animated :as animated]
             [quo.react-native :as rn]
-            [quo.platform :as platform]
             [status-im.ui.screens.chat.audio-message.views :as audio-message]
             [quo.react :as quo.react]
             [status-im.ui.screens.chat.message.message :as message]
