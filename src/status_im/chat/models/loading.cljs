@@ -30,8 +30,7 @@
                       {}
                       new-chats)
         chats (merge old-chats chats)]
-    {:dispatch [:start-timeline-chat]
-     :db (assoc db :chats chats
+    {:db (assoc db :chats chats
                 :chats/loading? false)}))
 
 (fx/defn initialize-chats
@@ -109,11 +108,9 @@
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
   [{:keys [db] :as cofx} chat-id first-request]
-  (println "LOAD")
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
     (when (and
            (not (get-in db [:pagination-info chat-id :all-loaded?]))
-           ;(not (get-in db [:pagination-info chat-id :processing?]))
            (not (get-in db [:pagination-info chat-id :loading-messages?])))
       (let [cursor (get-in db [:pagination-info chat-id :cursor])]
         (when (or first-request cursor)
@@ -125,7 +122,6 @@
                                    constants/default-number-of-messages
                                    #(re-frame/dispatch [::messages-loaded chat-id session-id %])
                                    #(re-frame/dispatch [::failed-loading-messages chat-id session-id %])))]
-            (println "LOAD MORE cursor" cursor)
             (fx/merge cofx
                       load-messages-fx
                       (reactions/load-more-reactions cursor chat-id)

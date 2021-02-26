@@ -15,7 +15,6 @@
             [status-im.native-module.core :as status]
             [status-im.ui.components.permissions :as permissions]
             [status-im.utils.utils :as utils]
-            [status-im.contact.db :as contact.db]
             [status-im.ethereum.json-rpc :as json-rpc]
             clojure.set
             status-im.currency.core
@@ -188,7 +187,6 @@
                   (apply fx/merge cofx (map chat/start-profile-chat
                                             (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
                                                   (get-in db [:multiaccount :public-key]))))))))
-
 
 (fx/defn on-will-focus
   {:events [:screens/on-will-focus]}

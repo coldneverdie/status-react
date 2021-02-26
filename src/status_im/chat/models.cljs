@@ -246,11 +246,12 @@
 
 (fx/defn preload-chat-data
   "Takes chat-id and coeffects map, returns effects necessary when navigating to chat"
+  {:events [:chat.ui/preload-chat-data]}
   [{:keys [db] :as cofx} chat-id]
   (fx/merge cofx
-            (loading/load-messages chat-id)
             (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
-              (transport.filters/load-chat chat-id))))
+              (transport.filters/load-chat chat-id))
+            (loading/load-messages chat-id)))
 
 (fx/defn navigate-to-chat
   "Takes coeffects map and chat-id, returns effects necessary for navigation and preloading data"
@@ -305,7 +306,6 @@
 
 (fx/defn start-timeline-chat
   "Starts a new timeline chat"
-  {:events [:start-timeline-chat]}
   [cofx]
   (when-not (active-chat? cofx constants/timeline-chat-id)
     (add-public-chat cofx constants/timeline-chat-id nil true)))
@@ -332,9 +332,9 @@
       (navigation/navigate-to-cofx cofx :profile-stack {:screen :my-profile})
       (fx/merge
        cofx
-       {:db (assoc db :contacts/identity identity)}
+       {:db (assoc db :contacts/identity identity)
+        :dispatch [:chat.ui/preload-chat-data (profile-chat-topic identity)]}
        (start-profile-chat identity)
-       (preload-chat-data (profile-chat-topic identity))
        (navigation/navigate-to-cofx :profile nil)))))
 
 (fx/defn mute-chat-failed
