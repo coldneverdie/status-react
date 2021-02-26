@@ -25,8 +25,8 @@
 (defonce communities-stack (navigation/create-stack))
 
 (defn chat-chat-stack []
-  [stack {:initial-route-name :chat
-          :header-mode        :none
+  [stack {:initial-route-name    :chat
+          :header-mode           :none
           :detachInactiveScreens false}
    [{:name      :referral-enclav
      :component referrals.public-chat/view}
@@ -85,22 +85,19 @@
                     :top    false}
         :component membership/membership}]))])
 
-(defonce bottom-tabs (navigation/create-bottom-tabs))
-
-(defn tabbar [_]
-  (reagent/as-element
-   [react/view]))
+(defonce caht-tabs (navigation/create-bottom-tabs))
 
 (defn chat-stack []
-  [bottom-tabs {:initial-route-name :home
-                :header-mode        :none
-                :tab-bar            tabbar}
+  [caht-tabs {:initial-route-name :home
+              :header-mode        :none}
    [{:name      :home
      :style     {:padding-bottom tabbar.styles/tabs-diff}
-     :component home/home}
+     :component home/home
+     :options   {:tabBarVisible false}}
     {:name      :chat-chat-stack
      :insets    {:top false}
-     :component chat-chat-stack}]])
+     :component chat-chat-stack
+     :options   {:tabBarVisible false}}]])
 
 (defn new-group-chat []
   [group-stack {:header-mode        :none

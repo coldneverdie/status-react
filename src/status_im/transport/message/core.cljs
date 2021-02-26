@@ -121,9 +121,8 @@
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters-removed filters))))))
 
-(defn group-by-messages-and-update-counts [{:keys [current-chat-id cursor-clock-value db] :as acc} ^js message-js]
+(defn group-by-messages-and-update-counts [{:keys [current-chat-id db] :as acc} ^js message-js]
   (let [chat-id (.-localChatId message-js)
-        clock (.-clock message-js)
         message-type (.-messageType message-js)
         from (.-from message-js)
         new (.-new message-js)
@@ -131,7 +130,7 @@
         profile (models.chat/profile-chat? {:db db} chat-id)
         tx-hash (and (.-commandParameters message-js) (.-commandParameters.transactionHash message-js))]
     (cond-> acc
-      (and current (>= clock cursor-clock-value))
+      current
       (update :messages conj message-js)
 
       profile
@@ -159,15 +158,16 @@
         {:keys [db messages transactions chats]}
         (reduce group-by-messages-and-update-counts
                 {:db db :chats #{} :transactions #{} :statuses [] :messages []
-                 :current-chat-id current-chat-id
-                 :cursor-clock-value current-chat-id}
+                 :current-chat-id current-chat-id}
                 (.-messages response-js))]
     ;;we want to sort and process only messages for current chat
-    (when (seq messages)
+    (println "MESSAGES" (count (.-messages response-js)) (count messages))
+    (if (seq messages)
       (set! (.-messages response-js)
-            (.sort (array-seq messages)
+            (.sort (to-array messages)
                    (fn [a b]
-                     (- (.-clock b) (.-clock a))))))
+                     (- (.-clock b) (.-clock a)))))
+      (js-delete response-js "messages"))
     (fx/merge cofx
               {:db db
                :utils/dispatch-later (concat []

@@ -4,6 +4,7 @@
             ["functional-red-black-tree" :as rb-tree]))
 
 (defn- add-datemark [{:keys [whisper-timestamp] :as msg}]
+  ;;TODO this is slow
   (assoc msg :datemark (time/day-relative whisper-timestamp)))
 
 (defn- add-timestamp [{:keys [whisper-timestamp] :as msg}]
@@ -132,19 +133,19 @@
   (let [^js iter (.find tree message)
         ^js previous-message (when (.-hasPrev iter)
                                (get-prev-element iter))
-        ^js next-message     (when (.-hasNext iter)
-                               (get-next-element iter))
+        ^js next-message (when (.-hasNext iter)
+                           (get-next-element iter))
         ^js message-with-pos-data (add-group-info message previous-message next-message)]
-    (cond->
-     (.update iter message-with-pos-data)
-
+    (cond-> (.update iter message-with-pos-data)
       next-message
-      (-> ^js (.find next-message)
+      (-> ^js
+          (.find next-message)
           (.update (update-next-message message-with-pos-data next-message)))
 
       (and previous-message
            (not= :datemark (:type previous-message)))
-      (-> ^js (.find previous-message)
+      (-> ^js
+          (.find previous-message)
           (.update (update-previous-message message-with-pos-data previous-message))))))
 
 (defn remove-message
@@ -170,8 +171,12 @@
     (update-message tree prepared-message)))
 
 (defn add [message-list message]
-  (let [mess (prepare-message message)]
-    (insert-message (or message-list (rb-tree compare-fn)) mess)))
+  (let [n (re-frame.interop/now)
+        mess (prepare-message message)
+        _ (println "ADD prepare" (- (re-frame.interop/now) n))
+        res (insert-message (or message-list (rb-tree compare-fn)) mess)]
+    (println "ADD" (- (re-frame.interop/now) n) (get-in message [:content :text]) (and message-list (.-length message-list)))
+    res))
 
 (defn add-many [message-list messages]
   (reduce add

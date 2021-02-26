@@ -80,8 +80,8 @@
            (contact.db/added? db pub-key)))
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
-(defn add-message [db timeline-message message-js chat-id message-id acc]
-  (let [{:keys [alias replace from] :as message}
+(defn add-message [db timeline-message message-js chat-id message-id acc cursor-clock-value]
+  (let [{:keys [alias replace from clock-value] :as message}
         (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
     (if (message-loaded? db chat-id message-id)
       ;; If the message is already loaded, it means it's an update, that
@@ -95,12 +95,17 @@
         :always
         (update-in [:db :message-lists chat-id] message-list/add message)
 
+        (or (not cursor-clock-value) (< clock-value cursor-clock-value))
+        (update-in [:db :pagination-info chat-id] assoc
+                   :cursor (chat.loading/clock-value->cursor clock-value)
+                   :cursor-clock-value clock-value)
+
         ;;conj sender for add-sender-to-chat-users
         (and (not (string/blank? alias))
              (not (get-in db [:chats chat-id :users from])))
         (update :senders assoc from message)
 
-        replace
+        (not (string/blank? replace))
         ;;TODO this is expensive
         (hide-message chat-id replace)))))
 
@@ -109,7 +114,7 @@
         clock-value (.-clock message-js)
         message-id (.-id message-js)
         current-chat-id (:current-chat-id db)
-        cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])
+        cursor-clock-value (get-in db [:pagination-info current-chat-id :cursor-clock-value])
         timeline-message (get-timeline-message db chat-id message-js)
         ;;add timeline message
         {:keys [db] :as acc} (if timeline-message
@@ -122,26 +127,21 @@
       (if (or (not @view.state/first-not-visible-item)
               (<= (:clock-value @view.state/first-not-visible-item)
                   clock-value))
-        (add-message db timeline-message message-js chat-id message-id acc)
+        (add-message db timeline-message message-js chat-id message-id acc cursor-clock-value)
         ;; Not in the current view, set all-loaded to false
         ;; and offload to db and update cursor if necessary
         {:db (cond-> (assoc-in db [:pagination-info chat-id :all-loaded?] false)
-               (>= clock-value cursor-clock-value)
-               (update-in [:chats chat-id] assoc
+               (> clock-value cursor-clock-value)
+               ;;TODO cut older messages from messages-list
+               (update-in [:pagination-info chat-id] assoc
                           :cursor (chat.loading/clock-value->cursor clock-value)
                           :cursor-clock-value clock-value))})
       acc)))
 
 (defn receive-many [{:keys [db]} ^js response-js]
-  (let [current-chat-id (:current-chat-id db)
-        cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])]
-    (when (.-messages response-js)
-      ;;we to filter messages by cursor-clock-value because
-      (set! (.-messages response-js) (.filter (.-messages response-js)
-                                              #(and (= (.-localChatId %) current-chat-id)
-                                                    (>= (.-clock %) cursor-clock-value)))))
+  (let [current-chat-id (:current-chat-id db)]
     ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
-    (let [messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 5 20))
+    (let [messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 3 10))
           {:keys [db chats senders]}
           (reduce reduce-js-messages
                   {:db db :chats #{} :senders {} :transactions #{}}

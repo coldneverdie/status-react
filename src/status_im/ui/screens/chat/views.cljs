@@ -154,10 +154,8 @@
                     first-not-visible (aget (.-data ^js (.-props ^js @messages-list-ref)) (inc index))]
                 (when (and first-not-visible
                            (= :message (:type first-not-visible)))
-                  first-not-visible))))))
-    ;(println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
-;; TODO do not offload because it works sometimes unexpected, and actually it seems to better to have large list and don't reorganize it
-  ;(debounce/debounce-and-dispatch [:chat.ui/message-visibility-changed e] 5000))
+                  first-not-visible))))
+    (println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
 
 (defn render-fn [{:keys [outgoing type] :as message}
                  idx
@@ -255,12 +253,14 @@
 
 (defn list-footer [{:keys [chat-id chat-type] :as chat}]
   (let [loading-messages? @(re-frame/subscribe [:chats/loading-messages? chat-id])
-        no-messages? @(re-frame/subscribe [:chats/chat-no-messages? chat-id])]
+        no-messages? @(re-frame/subscribe [:chats/chat-no-messages? chat-id])
+        all-loaded? @(re-frame/subscribe [:chats/all-loaded? chat-id])]
     [react/view {:style (when platform/android? {:scaleY -1})}
      (if (or loading-messages? (not chat-id))
        [react/view {:height 324 :align-items :center :justify-content :center}
         [react/activity-indicator {:animating true}]]
-       [chat-intro-header-container chat no-messages?])
+       (when all-loaded?
+         [chat-intro-header-container chat no-messages?]))
      (when (= chat-type constants/one-to-one-chat-type)
        [invite.chat/reward-messages])]))
 
@@ -278,7 +278,7 @@
      (merge
       pan-responder
       (when platform/low-device?
-        {:initialNumToRender 5})
+        {:initial-num-to-render 5})
       {:key-fn                       #(or (:message-id %) (:value %))
        :ref                          #(reset! messages-list-ref %)
        :header                       [list-header chat]
@@ -291,8 +291,17 @@
                                       :chat-id            chat-id}
        :render-fn                    render-fn
        :on-viewable-items-changed    on-viewable-items-changed
-       :on-end-reached               #(when @state/scrolling
-                                        (re-frame/dispatch [:chat.ui/load-more-messages chat-id]))
+       :on-end-reached               #(do
+                                        (println "END REACHED" @state/scrolling)
+                                        (when @state/scrolling
+                                          (re-frame/dispatch [:chat.ui/load-more-messages chat-id])))
+       :scrollEventThrottle          400
+       :onScroll                     #(do
+                                        ;(println "SCROLL " (- (.-nativeEvent.contentSize.height %) (+ (.-nativeEvent.layoutMeasurement.height %) (.-nativeEvent.contentOffset.y %))))
+                                        (when (>= (+ (.-nativeEvent.layoutMeasurement.height %) (.-nativeEvent.contentOffset.y %))
+                                                  (- (.-nativeEvent.contentSize.height %) 400))
+                                          (println "SCROLL END REACHED")
+                                          (re-frame/dispatch [:chat.ui/load-more-messages chat-id])))
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}
