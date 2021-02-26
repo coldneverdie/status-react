@@ -195,7 +195,7 @@
 
 (defn home []
   [react/keyboard-avoiding-view {:style styles/home-container}
-   [topbar/topbar {:title           (str (i18n/label :t/chat) "(" platform/low-device? " " platform/version")")
+   [topbar/topbar {:title           (str (i18n/label :t/chat) "(" platform/low-device? " " platform/version ")")
                    :navigation      :none
                    :right-component [connectivity/connectivity-button]}]
    [connectivity/loading-indicator]

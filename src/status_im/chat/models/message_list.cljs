@@ -138,14 +138,12 @@
         ^js message-with-pos-data (add-group-info message previous-message next-message)]
     (cond-> (.update iter message-with-pos-data)
       next-message
-      (-> ^js
-          (.find next-message)
+      (-> ^js (.find next-message)
           (.update (update-next-message message-with-pos-data next-message)))
 
       (and previous-message
            (not= :datemark (:type previous-message)))
-      (-> ^js
-          (.find previous-message)
+      (-> ^js (.find previous-message)
           (.update (update-previous-message message-with-pos-data previous-message))))))
 
 (defn remove-message
@@ -171,7 +169,7 @@
     (update-message tree prepared-message)))
 
 (defn add [message-list message]
-  (let [n (re-frame.interop/now)
+  (let [;n (re-frame.interop/now)
         mess (prepare-message message)
         ;_ (println "ADD prepare" (- (re-frame.interop/now) n))
         res (insert-message (or message-list (rb-tree compare-fn)) mess)]

@@ -139,25 +139,25 @@
       acc)))
 
 (defn receive-many [{:keys [db]} ^js response-js]
-  (let [current-chat-id (:current-chat-id db)]
-    ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
-    (let [messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 3 10))
-          {:keys [db chats senders]}
-          (reduce reduce-js-messages
-                  {:db db :chats #{} :senders {} :transactions #{}}
-                  messages-js)]
-      ;;we want to render new messages as soon as possible
-      ;;so we dispatch later all other events which can be handled async
-      {:utils/dispatch-later
-       (concat [{:ms 20 :dispatch [:process-response response-js]}]
-               (when (and current-chat-id
-                          (get chats current-chat-id)
-                          (not (chat-model/profile-chat? {:db db} current-chat-id)))
-                 [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
-               (when (seq senders)
-                 [{:ms 40 :dispatch [:chat/add-senders-to-chat-users (vals senders)]}]))
-       :db (assoc-in db [:pagination-info current-chat-id :processing?]
-                     (> (count (.-messages response-js)) 0))})))
+  ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
+  (let [current-chat-id (:current-chat-id db)
+        messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 3 10))
+        {:keys [db chats senders]}
+        (reduce reduce-js-messages
+                {:db db :chats #{} :senders {} :transactions #{}}
+                messages-js)]
+    ;;we want to render new messages as soon as possible
+    ;;so we dispatch later all other events which can be handled async
+    {:utils/dispatch-later
+     (concat [{:ms 20 :dispatch [:process-response response-js]}]
+             (when (and current-chat-id
+                        (get chats current-chat-id)
+                        (not (chat-model/profile-chat? {:db db} current-chat-id)))
+               [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
+             (when (seq senders)
+               [{:ms 40 :dispatch [:chat/add-senders-to-chat-users (vals senders)]}]))
+     :db (assoc-in db [:pagination-info current-chat-id :processing?]
+                   (> (count (.-messages response-js)) 0))}))
 
 (fx/defn update-db-message-status
   [{:keys [db] :as cofx} chat-id message-id status]
