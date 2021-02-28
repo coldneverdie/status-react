@@ -201,7 +201,8 @@
 (defn call
   [{:keys [method params on-success on-error js-response] :as arg}]
   (if-let [method-options (json-rpc-api method)]
-    (let [params (or params [])
+    (let [n (re-frame.interop/now)
+          params (or params [])
           {:keys [id on-result subscription?]
            :or {on-result identity
                 id 1}} method-options
@@ -223,6 +224,7 @@
                                       [method params]
                                       params)})
          (fn [response]
+           (uiperf/add-log method "response " (- (re-frame.interop/now) n))
            (if (string/blank? response)
              (on-error {:message "Blank response"})
              (let [response-js (types/json->js response)]
