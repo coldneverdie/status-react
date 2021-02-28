@@ -19,7 +19,7 @@
             [status-im.ui.components.tabbar.styles :as tabbar.styles]
             [status-im.ui.screens.stickers.views :as stickers]
             [status-im.utils.config :as config]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [status-im.ui.screens.chat.uiperfview :as uiperf]))
 
 (defonce stack (navigation/create-stack))
 (defonce group-stack (navigation/create-stack))

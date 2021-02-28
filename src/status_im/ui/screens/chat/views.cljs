@@ -32,7 +32,8 @@
             [clojure.string :as string]
             [status-im.constants :as constants]
             [status-im.utils.platform :as platform]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [status-im.ui.screens.chat.uiperf :as uiperf]
+            ["react-native" :as react-native]))
 
 (defn topbar [current-chat]
   [topbar/topbar
@@ -164,7 +165,7 @@
                  {:keys [group-chat public? current-public-key space-keeper chat-id]}]
   (let [n (re-frame.interop/now)]
     (if @uiperf/render-perf-mode
-      (reagent/create-element react/text-class-raw #js {:onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+      (reagent/create-element (.-Text react-native) #js {:onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (:text content))
       [react/view {:style (when platform/android? {:scaleY -1})
                    :on-layout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}

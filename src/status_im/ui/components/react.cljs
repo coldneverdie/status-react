@@ -27,7 +27,6 @@
 (def scroll-view-class (reagent/adapt-react-class (.-ScrollView react-native)))
 (def keyboard-avoiding-view-class (reagent/adapt-react-class (.-KeyboardAvoidingView react-native)))
 
-(def text-class-raw (.-Text react-native))
 (def text-class (reagent/adapt-react-class (.-Text react-native)))
 (def text-input-class (reagent/adapt-react-class (.-TextInput react-native)))
 
