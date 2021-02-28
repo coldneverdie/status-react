@@ -165,7 +165,8 @@
                  {:keys [group-chat public? current-public-key space-keeper chat-id]}]
   (let [n (re-frame.interop/now)]
     (if @uiperf/render-perf-mode
-      (reagent/create-element (.-Text react-native) #js {:onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+      (reagent/create-element (.-Text react-native) #js {:style (when platform/android? {:scaleY -1})
+                                                         :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (:text content))
       [react/view {:style (when platform/android? {:scaleY -1})
                    :on-layout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
