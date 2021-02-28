@@ -31,7 +31,8 @@
             [quo.core :as quo]
             [clojure.string :as string]
             [status-im.constants :as constants]
-            [status-im.utils.platform :as platform]))
+            [status-im.utils.platform :as platform]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (defn topbar [current-chat]
   [topbar/topbar
@@ -157,23 +158,28 @@
                   first-not-visible))))))
     ;(println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
 
-(defn render-fn [{:keys [outgoing type] :as message}
+(defn render-fn [{:keys [outgoing type content] :as message}
                  idx
                  _
                  {:keys [group-chat public? current-public-key space-keeper chat-id]}]
-  [react/view {:style (when platform/android? {:scaleY -1})}
-   (if (= type :datemark)
-     [message-datemark/chat-datemark (:value message)]
-     (if (= type :gap)
-       [gap/gap message idx messages-list-ref false chat-id]
-       ; message content
-       [message/chat-message
-        (assoc message
-               :incoming-group (and group-chat (not outgoing))
-               :group-chat group-chat
-               :public? public?
-               :current-public-key current-public-key)
-        space-keeper]))])
+  (let [n (re-frame.interop/now)]
+    (if @uiperf/render-perf-mode
+      (reagent/create-element react/text-class-raw #js {:onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+       (:text content))
+      [react/view {:style (when platform/android? {:scaleY -1})
+                   :on-layout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+       (if (= type :datemark)
+         [message-datemark/chat-datemark (:value message)]
+         (if (= type :gap)
+           [gap/gap message idx messages-list-ref false chat-id]
+           ; message content
+           [message/chat-message
+            (assoc message
+                   :incoming-group (and group-chat (not outgoing))
+                   :group-chat group-chat
+                   :public? public?
+                   :current-public-key current-public-key)
+            space-keeper]))])))
 
 (defn bottom-sheet [input-bottom-sheet]
   (case input-bottom-sheet
@@ -283,7 +289,8 @@
        :header                       [list-header chat]
        :footer                       [list-footer chat]
        :data                         messages
-       :render-data                  {:group-chat         group-chat
+       :render-data                  {:exp                @uiperf/render-perf-mode
+                                      :group-chat         group-chat
                                       :public?            public?
                                       :current-public-key current-public-key
                                       :space-keeper       space-keeper
@@ -292,7 +299,7 @@
        :on-viewable-items-changed    on-viewable-items-changed
        ;;TODO this is not really working in pair with inserting new messages because we stop inserting new messages
        ;;if they outside the viewarea, but we load more here because end is reached
-       :on-end-reached #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
+       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}

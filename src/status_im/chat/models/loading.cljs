@@ -10,7 +10,8 @@
             [status-im.chat.models.message-list :as message-list]
             [taoensso.timbre :as log]
             [status-im.ethereum.json-rpc :as json-rpc]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (defn cursor->clock-value
   [^js cursor]
@@ -65,45 +66,47 @@
   (when-not (and (get-in db [:pagination-info chat-id :messages-initialized?])
                  (not= session-id
                        (get-in db [:pagination-info chat-id :messages-initialized?])))
-    (println "LLOADED UPDATE")
-    (let [already-loaded-messages (get-in db [:messages chat-id])
-          ;; We remove those messages that are already loaded, as we might get some duplicates
-          {:keys [all-messages new-messages senders]}
-          (reduce (fn [{:keys [all-messages] :as acc}
-                       {:keys [message-id alias from]
-                        :as   message}]
-                    (cond-> acc
-                      (and (not (string/blank? alias))
-                           (not (get-in db [:chats chat-id :users from])))
-                      (update :senders assoc from message)
+    (let [n (re-frame.interop/now)
+          res (let [already-loaded-messages (get-in db [:messages chat-id])
+                    ;; We remove those messages that are already loaded, as we might get some duplicates
+                    {:keys [all-messages new-messages senders]}
+                    (reduce (fn [{:keys [all-messages] :as acc}
+                                 {:keys [message-id alias from]
+                                  :as   message}]
+                              (cond-> acc
+                                (and (not (string/blank? alias))
+                                     (not (get-in db [:chats chat-id :users from])))
+                                (update :senders assoc from message)
 
-                      (nil? (get all-messages message-id))
-                      (update :new-messages conj message)
+                                (nil? (get all-messages message-id))
+                                (update :new-messages conj message)
 
-                      :always
-                      (update :all-messages assoc message-id message)))
-                  {:all-messages already-loaded-messages
-                   :senders      {}
-                   :new-messages []}
-                  messages)
-          current-clock-value (get-in db [:pagination-info chat-id :cursor-clock-value])
-          clock-value (when cursor (cursor->clock-value cursor))]
-      {:dispatch [:chat/add-senders-to-chat-users (vals senders)]
-       :db       (-> db
-                     (update-in [:pagination-info chat-id :cursor-clock-value]
-                                #(if (and (seq cursor) (or (not %) (< clock-value %)))
-                                   clock-value
-                                   %))
+                                :always
+                                (update :all-messages assoc message-id message)))
+                            {:all-messages already-loaded-messages
+                             :senders      {}
+                             :new-messages []}
+                            messages)
+                    current-clock-value (get-in db [:pagination-info chat-id :cursor-clock-value])
+                    clock-value (when cursor (cursor->clock-value cursor))]
+                {:dispatch [:chat/add-senders-to-chat-users (vals senders)]
+                 :db       (-> db
+                               (update-in [:pagination-info chat-id :cursor-clock-value]
+                                          #(if (and (seq cursor) (or (not %) (< clock-value %)))
+                                             clock-value
+                                             %))
 
-                     (update-in [:pagination-info chat-id :cursor]
-                                #(if (or (empty? cursor) (not current-clock-value) (< clock-value current-clock-value))
-                                   cursor
-                                   %))
-                     (assoc-in [:pagination-info chat-id :loading-messages?] false)
-                     (assoc-in [:messages chat-id] all-messages)
-                     (update-in [:message-lists chat-id] message-list/add-many new-messages)
-                     (assoc-in [:pagination-info chat-id :all-loaded?]
-                               (empty? cursor)))})))
+                               (update-in [:pagination-info chat-id :cursor]
+                                          #(if (or (empty? cursor) (not current-clock-value) (< clock-value current-clock-value))
+                                             cursor
+                                             %))
+                               (assoc-in [:pagination-info chat-id :loading-messages?] false)
+                               (assoc-in [:messages chat-id] all-messages)
+                               (update-in [:message-lists chat-id] message-list/add-many new-messages)
+                               (assoc-in [:pagination-info chat-id :all-loaded?]
+                                         (empty? cursor)))})]
+      (uiperf/add-log "LOADED MORE" (- (re-frame.interop/now) n))
+      res)))
 
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}

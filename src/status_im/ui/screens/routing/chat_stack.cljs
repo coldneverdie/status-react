@@ -18,7 +18,8 @@
             [status-im.ui.screens.profile.group-chat.views :as profile.group-chat]
             [status-im.ui.components.tabbar.styles :as tabbar.styles]
             [status-im.ui.screens.stickers.views :as stickers]
-            [status-im.utils.config :as config]))
+            [status-im.utils.config :as config]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (defonce stack (navigation/create-stack))
 (defonce group-stack (navigation/create-stack))
@@ -32,6 +33,10 @@
      :component referrals.public-chat/view}
     {:name      :chat
      :component chat/chat}
+    {:name      :perf
+     :component uiperf/view}
+
+
     {:name      :group-chat-profile
      :insets    {:top false}
      :component profile.group-chat/group-chat-profile}

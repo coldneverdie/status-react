@@ -64,7 +64,9 @@
 
 (defn- wrap-render-fn [f render-data]
   (fn [^js data]
-    (reagent/as-element [f (.-item data) (.-index data) (.-separators data) render-data])))
+    (if (:exp render-data)
+      (f (.-item data) (.-index data) (.-separators data) render-data)
+      (reagent/as-element [f (.-item data) (.-index data) (.-separators data) render-data]))))
 
 (defn- wrap-key-fn [f]
   (fn [data index]

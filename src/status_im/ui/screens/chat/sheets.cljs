@@ -8,7 +8,8 @@
             [status-im.ui.components.chat-icon.screen :as chat-icon]
             [status-im.multiaccounts.core :as multiaccounts]
             [status-im.ui.screens.chat.styles.message.sheets :as sheets.styles]
-            [quo.core :as quo]))
+            [quo.core :as quo]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (defn hide-sheet-and-dispatch [event]
   (re-frame/dispatch [:bottom-sheet/hide])
@@ -49,6 +50,15 @@
   (let [link    (universal-links/generate-link :public-chat :external chat-id)
         message (i18n/label :t/share-public-chat-text {:link link})]
     [react/view
+     [quo/list-item
+      {:theme               :accent
+       :title               (if @uiperf/render-perf-mode "disable perf mode" "enable perf mode")
+       :on-press            (fn [] (swap! uiperf/render-perf-mode not))}]
+     [quo/list-item
+      {:theme               :accent
+       :title               "open perf logs"
+       :on-press            #(hide-sheet-and-dispatch [:navigate-to :perf])}]
+
      [quo/list-item
       {:theme               :accent
        :title               (i18n/label :t/share-chat)

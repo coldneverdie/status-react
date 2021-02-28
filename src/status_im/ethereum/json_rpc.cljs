@@ -7,7 +7,8 @@
             [status-im.utils.money :as money]
             [status-im.utils.types :as types]
             [status-im.utils.utils :as utils]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (def json-rpc-api
   {"eth_call" {}
@@ -233,7 +234,11 @@
                      (types/js->clj (.-result response-js)) on-success])
                    (on-success (on-result (if js-response
                                             (.-result response-js)
-                                            (types/js->clj (.-result response-js)))))))))))))
+                                            (let [n (re-frame.interop/now)
+                                                  res  (types/js->clj (.-result response-js))]
+                                              (uiperf/add-log method "js->clj" (- (re-frame.interop/now) n))
+                                              res))))))))))))
+
 
     (log/warn "method" method "not found" arg)))
 

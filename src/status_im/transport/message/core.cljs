@@ -16,7 +16,8 @@
             [status-im.utils.types :as types]
             [status-im.constants :as constants]
             [status-im.multiaccounts.model :as multiaccounts.model]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [status-im.ui.screens.chat.uiperf :as uiperf]))
 
 (fx/defn handle-contacts [cofx contacts]
   (models.contact/ensure-contacts cofx contacts))
@@ -161,7 +162,7 @@
                  :current-chat-id current-chat-id}
                 (.-messages response-js))]
     ;;we want to sort and process only messages for current chat
-    (println "MESSAGES" (count (.-messages response-js)) (count messages))
+    (uiperf/add-log "MESSAGES" (count (.-messages response-js)) (count messages))
     (if (seq messages)
       (set! (.-messages response-js)
             (.sort (to-array messages)
