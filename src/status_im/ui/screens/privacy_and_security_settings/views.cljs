@@ -78,14 +78,11 @@
                         :on-press                #(re-frame/dispatch
                                                    [:multiaccounts.ui/webview-permission-requests-switched
                                                     ((complement boolean) webview-allow-permission-requests?)])}])
-      ;; TODO(rasom): remove this condition when kk support will be added
-      (when-not keycard?
-        [separator])
-      (when-not keycard?
-        [quo/list-item
-         {:size                :small
-          :theme               :negative
-          :title               (i18n/label :t/delete-my-profile)
-          :on-press            #(re-frame/dispatch [:navigate-to :delete-profile])
-          :accessibility-label :dapps-permissions-button
-          :chevron             true}])]]))
+      [separator]
+      [quo/list-item
+       {:size                :small
+        :theme               :negative
+        :title               (i18n/label :t/delete-my-profile)
+        :on-press            #(re-frame/dispatch [:navigate-to :delete-profile])
+        :accessibility-label :dapps-permissions-button
+        :chevron             true}]]]))
