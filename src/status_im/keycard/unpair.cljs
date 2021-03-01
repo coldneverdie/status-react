@@ -133,12 +133,12 @@
               (common/clear-on-card-connected)
               (common/hide-connection-sheet)
               (native-module/delete-multiaccount
-                key-uid
-                (fn [result]
-                  (let [{:keys [error]} (types/json->clj result)]
-                    (if-not (string/blank? error)
-                      (log/info error)
-                      (log/info "remove account ok"))))))))
+               key-uid
+               (fn [result]
+                 (let [{:keys [error]} (types/json->clj result)]
+                   (if-not (string/blank? error)
+                     (log/info error)
+                     (log/info "remove account ok"))))))))
 
 (fx/defn on-remove-key-error
   {:events [:keycard.callback/on-remove-key-error]}

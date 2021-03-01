@@ -67,10 +67,10 @@
                               :active             true
                               :accessory          :checkbox}]])
            (when-not (and keycard? keep-keys-on-keycard?)
-            [quo/text {:style {:margin-horizontal 24}
-                      :align :center
-                      :color :negative}
-            (i18n/label :t/delete-profile-warning)])
+             [quo/text {:style {:margin-horizontal 24}
+                        :align :center
+                        :color :negative}
+              (i18n/label :t/delete-profile-warning)])
            (when-not keycard?
              [quo/text-input
               {:style             {:margin-horizontal 36
