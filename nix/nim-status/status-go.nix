@@ -14,7 +14,7 @@ let
   inherit (lib) attrNames attrValues getAttr mapAttrs strings concatStringsSep concatMapStrings;
 
   callPackage = newScope {};
-  flags = callPackage ../nim-status/getFlags.nix {inherit platform arch;};
+  flags = callPackage ./getFlags.nix {inherit platform arch;};
 
   removeReferences = [ go ];
   removeExpr = refs: ''remove-references-to ${concatMapStrings (ref: " -t ${ref}") refs}'';
@@ -89,7 +89,8 @@ in buildGo114Package rec {
 
   installPhase = ''
     mkdir -p $out
-    cp ./libstatus.* $out/
+    cp ./${libraryFileName} $out/${libraryFileName}
+    cp ./libstatus.h $out/status.h
   '';
 
   outputs = [ "out" ];

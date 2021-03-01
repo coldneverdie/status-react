@@ -1,7 +1,6 @@
 { stdenv, pkgs, deps, lib, config, callPackage,
   watchmanFactory, androidPkgs, patchMavenSources,
   nim-status,
-  status-go,
   keystore, jsbundle}:
 
 {
@@ -86,7 +85,7 @@ in stdenv.mkDerivation rec {
   ANDROID_NDK_ROOT = "${androidPkgs}/ndk-bundle";
 
   # Used by the Android Gradle build script in android/build.gradle
-  STATUS_GO_ANDROID_LIBDIR = "${status-go}";
+  STATUS_GO_ANDROID_LIBDIR = "${nim-status}";
   NIM_STATUS_ANDROID_LIBDIR = "${nim-status}";
 
   phases = [

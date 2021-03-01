@@ -11,18 +11,6 @@
 
 
 let
-  androidConfigureArchMap = {
-    "386" = "x86";
-    "arm" = "arm";
-    "arm64" = "arm64";
-  };
-
-  iosConfigureArchMap = {
-    "386" = "iossimulator";
-    "arm" = "ios";
-    "arm64" = "ios64";
-  };
-
   ANDROID_NDK_HOME = "${androidPkgs}/ndk-bundle";
 
 

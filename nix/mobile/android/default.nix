@@ -1,6 +1,5 @@
 { lib, pkgs, deps, callPackage, mkShell
 , nim-status
-, status-go
 , androidPkgs, androidShell }:
 
 let
@@ -15,7 +14,7 @@ let
 
   # TARGETS
   release = callPackage ./release.nix {
-    inherit keystore jsbundle watchmanFactory status-go nim-status;
+    inherit keystore jsbundle watchmanFactory nim-status;
   };
 
 in {
@@ -42,7 +41,7 @@ in {
       export STATUS_NIX_MAVEN_REPO="${deps.gradle}"
 
       # required by some makefile targets
-      export STATUS_GO_ANDROID_LIBDIR=${status-go}
+      export STATUS_GO_ANDROID_LIBDIR=${nim-status}
       export NIM_STATUS_ANDROID_LIBDIR=${nim-status}
 
       # check if node modules changed and if so install them
