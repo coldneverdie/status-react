@@ -108,7 +108,6 @@ in rec {
   status-go-ios = buildIos status-go.ios "status";
 
   android = stdenv.mkDerivation {
-      inherit xcodeWrapper;
       buildInputs = [ pkgs.coreutils ];
       name = "nim-status-go-android-builder";
       builder = writeScript "nim-status-go-android-builder.sh"
@@ -130,7 +129,6 @@ in rec {
   };
 
   ios = stdenv.mkDerivation {
-      inherit xcodeWrapper;
       buildInputs = [ pkgs.coreutils ];
       name = "nim-status-go-ios-builder";
       builder = writeScript "nim-status-go-ios-builder.sh"
