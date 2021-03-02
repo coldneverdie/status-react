@@ -37,7 +37,7 @@
                  {:align-self                       :flex-end
                   :position                         :absolute
                   :bottom                           9 ; 6 Bubble bottom, 3 message baseline
-                  (if (:rtl? content) :left :right) 0
+                  (if (:rtl? content) :left :right) 12
                   :flex-direction                   :row
                   :align-items                      :flex-end})
     (when (and outgoing justify-timestamp?)
@@ -275,14 +275,48 @@
   "Author, userpic and delivery wrapper"
   [{:keys [first-in-group? display-photo? display-username?
            identicon
-           from outgoing]
+           from outgoing last-in-group? group-chat content-type]
     :as   message} content {:keys [modal close-modal]}]
-  [:<>
+  [react/view {:margin-top                 (if (and last-in-group?
+                                                    (or outgoing
+                                                        (not group-chat)))
+                                             16
+                                             0)}
    (when (and display-photo? first-in-group?)
-     [react/touchable-highlight {:on-press #(do (when modal (close-modal))
+     [react/touchable-highlight {:style {:position :absolute :bottom 0 :left 20}
+                                 :on-press #(do (when modal (close-modal))
                                                 (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
       [photos/member-photo from identicon]])
-   content])
+   (when display-username?
+     [react/touchable-opacity {:style    {:position :absolute :top 0 :left 76}
+                               :on-press #(do (when modal (close-modal))
+                                              (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
+      ;;TODO refactor, make it simpler , too complex
+      [message-author-name from {:modal modal}]])
+
+   [react/view (merge
+                {:margin-left 64 :margin-top (when display-username? 22)
+                 :margin-right 72}
+                {:border-top-left-radius     16
+                 :border-top-right-radius    16
+                 :border-bottom-right-radius 16
+                 :border-bottom-left-radius  16
+                 :padding-top                6
+                 :padding-horizontal         12
+                 :border-radius              8}
+                (if outgoing
+                  {:border-bottom-right-radius 4}
+                  {:border-bottom-left-radius 4})
+
+                (cond
+                  (= content-type constants/content-type-system-text) nil
+                  outgoing                                            {:background-color colors/blue}
+                  :else                                               {:background-color colors/blue-light})
+
+                (when (= content-type constants/content-type-emoji)
+                  {:flex-direction :row}))
+    [message-timestamp message true]
+    content]])
 
 
 (defn message-content-wrapper-2
