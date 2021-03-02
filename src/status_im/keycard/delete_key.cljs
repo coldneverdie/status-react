@@ -39,6 +39,8 @@
                                                  :puk         []
                                                  :status      nil
                                                  :error-label nil
-                                                 :on-verified (if keep-keys-on-keycard? :keycard/unpair-and-delete :keycard/remove-key-with-unpair)})}
+                                                 :on-verified (if keep-keys-on-keycard?
+                                                                :keycard/unpair-and-delete
+                                                                :keycard/remove-key-with-unpair)})}
               (common/set-on-card-connected :keycard/navigate-to-enter-pin-screen)
               (common/navigate-to-enter-pin-screen))))
