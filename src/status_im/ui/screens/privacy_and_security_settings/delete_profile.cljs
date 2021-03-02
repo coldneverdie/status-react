@@ -67,7 +67,7 @@
                               :disabled           true
                               :active             true
                               :accessory          :checkbox}]])
-           (when-not (and keycard? keep-keys-on-keycard?)
+           (when-not keycard?
              [quo/text {:style {:margin-horizontal 24}
                         :align :center
                         :color :negative}
@@ -89,7 +89,13 @@
                                       (i18n/label :t/wrong-password)
                                       (str error)))}])]
           [react/view {:style {:align-items :center}}
-           [quo/separator]
+           (when-not keycard?
+             [quo/separator])
+           (when (and keycard? (not keep-keys-on-keycard?))
+             [quo/text {:style {:margin-horizontal 24 :margin-bottom 16}
+                        :align :center
+                        :color :negative}
+              (i18n/label :t/delete-profile-warning)])
            [react/view
             {:style {:margin-vertical 8}}
             [quo/button {:on-press            (if keycard? (on-delete-keycard-profile keep-keys-on-keycard?) (on-delete-profile password))
