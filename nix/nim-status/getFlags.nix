@@ -1,9 +1,7 @@
-{ pkgs, stdenv, lib, fetchFromGitHub
+{ stdenv, lib
 # Dependencies
 , xcodeWrapper
-, writeScript
 , androidPkgs
-, git 
 , platform ? "android"
 , arch ? "386"
 , fromNim ? false

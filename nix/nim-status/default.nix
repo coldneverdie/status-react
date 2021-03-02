@@ -1,37 +1,25 @@
-{ newScope
-, mkShell
+{ mkShell
+, callPackage
 , writeScript
 , writeText
 , xcodeWrapper
 , pkgs
-, stdenv
-, lib }:
+, stdenv}:
 let
-  callPackage = newScope {};
   buildNimStatus = platform: arch: callPackage ./nim-status.nix {
     inherit platform arch;
   };
 
-  # Metadata common to all builds of status-go
-  meta = {
-    description = "The Status Go module that consumes go-ethereum.";
-    license = lib.licenses.mpl20;
-    platforms = with lib.platforms; linux ++ darwin;
-  };
-
-  # Source can be changed with a local override from config
-  source = callPackage ./status-go-source.nix { };
-  
   buildStatusGo = platform: arch: callPackage ./status-go.nix {
-    inherit platform arch meta source;
+    inherit platform arch;
   };
 
   buildAndroid = buildMap: name: stdenv.mkDerivation {
-    name = "${name}-android-builder";
+    name = "${name}-android";
     buildInputs = [ pkgs.coreutils ];
     builder = writeScript "${name}-android-builder.sh"
     ''
-      export PATH=${pkgs.coreutils}/bin:$PATH
+      source $stdenv/setup
       mkdir $out
 
       ln -s ${buildMap.x86} $out/x86
@@ -55,12 +43,11 @@ let
         #endif
       '';
     in stdenv.mkDerivation {
-      inherit xcodeWrapper;
-      buildInputs = [ pkgs.coreutils ];
-      name = "${name}-ios-builder";
+      buildInputs = [ pkgs.coreutils xcodeWrapper ];
+      name = "${name}-ios";
       builder = writeScript "${name}-ios-builder.sh"
       ''
-        export PATH=${pkgs.coreutils}/bin:${xcodeWrapper}/bin:$PATH
+        source $stdenv/setup
         mkdir $out
 
         # lipo merges arch-specific binaries into one fat iOS binary
@@ -109,10 +96,11 @@ in rec {
 
   android = stdenv.mkDerivation {
       buildInputs = [ pkgs.coreutils ];
-      name = "nim-status-go-android-builder";
+      name = "nim-status-go-android";
       builder = writeScript "nim-status-go-android-builder.sh"
       ''
-        export PATH=${pkgs.coreutils}/bin:$PATH
+        source $stdenv/setup
+
         mkdir $out
         for arch in "x86" "armeabi-v7a" "arm64-v8a"; do
           mkdir $out/$arch
@@ -130,10 +118,10 @@ in rec {
 
   ios = stdenv.mkDerivation {
       buildInputs = [ pkgs.coreutils ];
-      name = "nim-status-go-ios-builder";
+      name = "nim-status-go-ios";
       builder = writeScript "nim-status-go-ios-builder.sh"
       ''
-        export PATH=${pkgs.coreutils}/bin:$PATH
+        source $stdenv/setup
         mkdir $out
         for filename in ${nim-status-ios}/*; do
           ln -sf "$filename" $out/$(basename $filename)

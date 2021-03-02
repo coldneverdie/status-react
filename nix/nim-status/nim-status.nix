@@ -1,17 +1,12 @@
-{ pkgs, stdenv, lib, fetchFromGitHub
+{ pkgs, stdenv
 # Dependencies
-, xcodeWrapper
-, writeScript
-, androidPkgs
-, newScope
-, git 
+, callPackage
 , platform ? "android"
 , arch ? "386"
 , api ? "23" } :
 
 
 let
-  callPackage = newScope {};
   src = pkgs.fetchgit {
     url = "https://github.com/status-im/nim-status";
     rev = "40b935eb2676a449745e81eca72be492517f4136";

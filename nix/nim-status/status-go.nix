@@ -1,19 +1,18 @@
-{ stdenv, lib, fetchFromGitHub, buildGo114Package
+{ lib, buildGo114Package
 # Dependencies
-, xcodeWrapper
 , go, androidPkgs
-# metadata and status-go source
-, meta, source
-, newScope
+, callPackage
 # build parameters
 , platform ? "android"
 , arch ? "386"
 , api ? "23" }:
 
 let
-  inherit (lib) attrNames attrValues getAttr mapAttrs strings concatStringsSep concatMapStrings;
+  inherit (lib) attrValues mapAttrs concatStringsSep concatMapStrings;
 
-  callPackage = newScope {};
+  # Source can be changed with a local override from config
+  source = callPackage ./status-go-source.nix { };
+
   flags = callPackage ./getFlags.nix {inherit platform arch;};
 
   removeReferences = [ go ];
@@ -24,6 +23,16 @@ let
     GitCommit = source.rev;
     Version = source.cleanVersion;
   };
+
+  # These are necessary for status-go to show correct version
+  paramsLdFlags = attrValues (mapAttrs (name: value:
+    "-X github.com/status-im/status-go/params.${name}=${value}"
+  ) goBuildParams);
+
+  goBuildLdFlags = concatStringsSep " " (paramsLdFlags ++ [
+      "-s" # -s disabled symbol table
+      "-w" # -w disables DWARF debugging information
+    ]);
 
   # Shorthands for the built phase
 
@@ -42,10 +51,19 @@ let
 
   goTags = if isAndroid then "" else " -tags ios ";
 
+  # Metadata common to all builds of status-go
+  meta = {
+    description = "The Status Go module that consumes go-ethereum.";
+    license = lib.licenses.mpl20;
+    platforms = with lib.platforms; linux ++ darwin;
+  };
+
+
 in buildGo114Package rec {
   pname = source.repo;
   version = "${source.cleanVersion}-${source.shortRev}-${platform}-${arch}";
 
+  inherit meta;
   inherit (source) src goPackagePath ;
 
   ANDROID_HOME = androidPkgs;
@@ -66,7 +84,7 @@ in buildGo114Package rec {
     export GOOS=${goOs} GOARCH=${goArch} API=${api}
 
     export CGO_CFLAGS="${flags.compiler}"
-    export CGO_LDFLAGS="${flags.linker} ${if isAndroid then "-v -Wl,-soname,libstatus.so" else ""}"
+    export CGO_LDFLAGS="${flags.linker} ${if isAndroid then "-Wl,-soname,libstatus.so" else ""}"
     export CGO_ENABLED=1
 
     ${flags.vars} 
@@ -74,6 +92,7 @@ in buildGo114Package rec {
     go build \
        -v \
       -buildmode=${buildMode} \
+      -ldflags="${goBuildLdFlags}" \
       ${goTags} \
       -o ${libraryFileName} \
       $BUILD_FLAGS \
