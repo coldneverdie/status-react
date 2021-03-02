@@ -9,40 +9,53 @@
 
 
 let
-  ANDROID_NDK_HOME = "${androidPkgs}/ndk-bundle";
 
+  #
+  # iOS-specific
+  #
 
-  iosArchMap = {
+  iosSdk = if arch == "386" then "iphonesimulator" else "iphoneos";
+
+  # Used for the -arch parameter
+  # passed to clang during iOS builds
+  iosArch = lib.getAttr arch {
     "386" = "x86_64";
     "arm" = "armv7";
     "arm64" = "arm64";
   };
-  iosArch = lib.getAttr arch iosArchMap;
-  isAndroid = lib.hasPrefix "android" platform;
-  isIOS = platform == "ios";
 
+  isIOS = platform == "ios";
+  iosToolPath = "${xcodeWrapper}/bin";
+
+
+  #
+  # Android-specific
+  #
+  ANDROID_NDK_HOME = "${androidPkgs}/ndk-bundle";
+  
+  isAndroid = lib.hasPrefix "android" platform;
+
+  # Specify host system in order to pick proper toolchain during Android compilation
   osId = builtins.elemAt (builtins.split "\-" stdenv.hostPlatform.system) 2;
   osArch = builtins.elemAt (builtins.split "\-" stdenv.hostPlatform.system) 0;
 
-  targetArchMap = rec {
+  # Used for the -target parameter
+  # passed to clang during Android builds
+  androidTargetArch = lib.getAttr arch {
     "386" = "i686";
     "arm" = "arm";
     "arm64" = "aarch64";
   };
-  targetArch = lib.getAttr arch targetArchMap;
-  iosSdk = if arch == "386" then "iphonesimulator" else "iphoneos";
-  androidTarget = "${if arch == "arm" then "armv7a" else targetArch}-linux-${platform}";
-
-  ldArchMap = {
-      "386" = "x86";
-      "arm" = "arm";
-      "arm64" = "arm64";
-  };
+  androidTarget = "${if arch == "arm" then "armv7a" else androidTargetArch}-linux-${platform}";
 
 
-  ldArch = lib.getAttr arch ldArchMap;
   androidToolPath = "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/${osId}-${osArch}/bin";
-  androidToolPathPrefix = "${androidToolPath}/${targetArch}-linux-${platform}";
+  androidToolPathPrefix = "${androidToolPath}/${androidTargetArch}-linux-${platform}";
+
+
+  #
+  # Compiler/linker flags
+  #
   isysroot = if isAndroid then 
     "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/${osId}-${osArch}/sysroot"             
     else "$(xcrun --sdk ${iosSdk} --show-sdk-path)";
@@ -62,9 +75,6 @@ let
   else if isIOS then
   "--sysroot ${isysroot} -fembed-bitcode -arch ${iosArch} ${if fromNim && arch == "arm" then "" else "-m${iosSdk}-version-min=8.0"}"
   else throw "Unsupported platform!";
-
-
-  iosToolPath = "${xcodeWrapper}/bin";
 
   compilerVars = if isAndroid then
     ''
@@ -87,6 +97,11 @@ let
     else throw "Unsupported platform!";
 
   toolPath = if isAndroid then androidToolPath else iosToolPath;
+
+
+  #
+  # Nim-specific
+  #
 
   # Arg arch -> Nim arch
   nimCpuMap = {
