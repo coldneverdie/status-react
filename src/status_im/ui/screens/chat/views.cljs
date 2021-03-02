@@ -33,7 +33,9 @@
             [status-im.constants :as constants]
             [status-im.utils.platform :as platform]
             [status-im.ui.screens.chat.uiperf :as uiperf]
-            ["react-native" :as react-native]))
+            ["react-native" :as react-native]
+            [status-im.ui.screens.chat.photos :as photos]
+            [status-im.utils.utils :as utils]))
 
 (defn topbar [current-chat]
   [topbar/topbar
@@ -159,29 +161,75 @@
                   first-not-visible))))))
     ;(println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
 
-(defn render-fn [{:keys [outgoing type content] :as message}
+(defn render-fn [{:keys [outgoing type content content-type display-photo? first-in-group? last-in-group?
+                         display-username? from identicon]
+                  :as message}
                  idx
                  _
-                 {:keys [group-chat public? current-public-key space-keeper chat-id]}]
+                 {:keys [group-chat public? current-public-key space-keeper chat-id modal close-modal]}]
   (let [n (re-frame.interop/now)]
     (if @uiperf/render-perf-mode
       (reagent/create-element (.-Text react-native) #js {:style (when platform/android? {:scaleY -1})
                                                          :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (:text content))
-      [react/view {:style (when platform/android? {:scaleY -1})
-                   :on-layout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+      (reagent/create-element (.-View react-native) #js {:style (when platform/android? {:scaleY -1})
+                                                         :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (if (= type :datemark)
-         [message-datemark/chat-datemark (:value message)]
+         (reagent/as-element [message-datemark/chat-datemark (:value message)])
          (if (= type :gap)
-           [gap/gap message idx messages-list-ref false chat-id]
+           (reagent/as-element [gap/gap message idx messages-list-ref false chat-id])
            ; message content
-           [message/chat-message
-            (assoc message
-                   :incoming-group (and group-chat (not outgoing))
-                   :group-chat group-chat
-                   :public? public?
-                   :current-public-key current-public-key)
-            space-keeper]))])))
+           (reagent/create-element (.-View react-native) #js {:style {:marginTop  (if (and last-in-group?
+                                                                                           (or outgoing
+                                                                                               (not group-chat)))
+                                                                                    16
+                                                                                    0)}}
+            (when (and display-photo? first-in-group?)
+              (reagent/as-element [react/touchable-highlight {:style {:position :absolute :bottom 0 :left 20}
+                                                              :on-press #(do (when modal (close-modal))
+                                                                             (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
+                                   [photos/member-photo from identicon]]))
+            (when display-username?
+              (reagent/as-element [react/touchable-opacity {:style    {:position :absolute :top 0 :left 76}
+                                                            :on-press #(do (when modal (close-modal))
+                                                                           (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
+                                   ;;TODO refactor, make it simpler , too complex
+                                   [message/message-author-name from {:modal modal}]]))
+
+            (reagent/as-element [react/view (merge
+                                             {:margin-left 64 :margin-top (when display-username? 22)
+                                              :margin-right 72}
+                                             {:border-top-left-radius     16
+                                              :border-top-right-radius    16
+                                              :border-bottom-right-radius 16
+                                              :border-bottom-left-radius  16
+                                              :padding-top                6
+                                              :padding-horizontal         12
+                                              :border-radius              8}
+                                             (if outgoing
+                                               {:border-bottom-right-radius 4}
+                                               {:border-bottom-left-radius 4})
+
+                                             (cond
+                                               (= content-type constants/content-type-system-text) nil
+                                               outgoing                                            {:background-color colors/blue}
+                                               :else                                               {:background-color colors/blue-light})
+
+                                             (when (= content-type constants/content-type-emoji)
+                                               {:flex-direction :row}))
+                                 [message/message-timestamp message true]
+                                 (if (= content-type constants/content-type-text)
+                                   [message/render-parsed-text-with-timestamp message (-> message :content :parsed-text)])]))
+
+           #_[message/chat-message
+              (assoc message
+                     :incoming-group (and group-chat (not outgoing))
+                     :group-chat group-chat
+                     :public? public?
+                     :current-public-key current-public-key)
+              space-keeper]))))))
+
+
 
 (defn bottom-sheet [input-bottom-sheet]
   (case input-bottom-sheet
@@ -300,7 +348,11 @@
        ;;TODO this is not really working in pair with inserting new messages because we stop inserting new messages
        ;;if they outside the viewarea, but we load more here because end is reached,so its slowdown UI because we
        ;;load and render 20 messages more, but we can't prevent this , because otherwise :on-end-reached will work wrong
-       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
+       :on-end-reached               (fn []
+                                       (if @state/scrolling
+                                         (re-frame/dispatch [:chat.ui/load-more-messages chat-id])
+                                         (utils/set-timeout #(re-frame/dispatch [:chat.ui/load-more-messages chat-id]) (if platform/low-device? 500 200))))
+
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}
