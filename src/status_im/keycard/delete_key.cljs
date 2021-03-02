@@ -26,11 +26,11 @@
   {:events [:keycard-settings.ui/reset-card-next-button-pressed]}
   [{:keys [db]}]
   {:db       (assoc-in db [:keycard :reset-card :disabled?] true)
-   :dispatch [:keycard/proceed-to-reset-card]})
+   :dispatch [:keycard/proceed-to-reset-card false]})
 
 (fx/defn proceed-to-reset-card
   {:events [:keycard/proceed-to-reset-card]}
-  [{:keys [db] :as cofx}]
+  [{:keys [db] :as cofx} keep-keys-on-keycard?]
   (let [pin-retry-counter (get-in db [:keycard :application-info :pin-retry-counter])
         enter-step (if (zero? pin-retry-counter) :puk :current)]
     (fx/merge cofx
@@ -39,6 +39,6 @@
                                                  :puk         []
                                                  :status      nil
                                                  :error-label nil
-                                                 :on-verified :keycard/remove-key-with-unpair})}
+                                                 :on-verified (if keep-keys-on-keycard? :keycard/unpair-and-delete :keycard/remove-key-with-unpair)})}
               (common/set-on-card-connected :keycard/navigate-to-enter-pin-screen)
               (common/navigate-to-enter-pin-screen))))

@@ -8,7 +8,8 @@
             [status-im.i18n.i18n :as i18n]
             [reagent.core :as reagent]
             [status-im.utils.security :as security]
-            [status-im.ui.screens.privacy-and-security-settings.events :as delete-profile]))
+            [status-im.ui.screens.privacy-and-security-settings.events :as delete-profile]
+            status-im.keycard.delete-key))
 
 (defn valid-password? [password]
   (>= (count password) 6))
@@ -19,9 +20,9 @@
       [::delete-profile/delete-profile @password])
      (reset! password nil)))
 
-(defn on-delete-keycard-profile [delete-keys]
+(defn on-delete-keycard-profile [keep-keys-on-keycard?]
   #(re-frame/dispatch
-    [:keycard-settings.ui/reset-card-next-button-pressed delete-keys]))
+    [:keycard/proceed-to-reset-card keep-keys-on-keycard?]))
 
 (defn delete-profile []
   (let [password       (reagent/atom nil)

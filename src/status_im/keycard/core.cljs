@@ -194,7 +194,8 @@
               ;; and exporting key but should be refactored.
               (when-not (contains? #{:keycard/generate-and-load-key
                                      :wallet.accounts/generate-new-keycard-account
-                                     :keycard/remove-key-with-unpair} on-verified)
+                                     :keycard/remove-key-with-unpair
+                                     :keycard/unpair-and-delete} on-verified)
                 (common/hide-connection-sheet))
               (when-not (contains? #{:keycard/unpair
                                      :keycard/generate-and-load-key
