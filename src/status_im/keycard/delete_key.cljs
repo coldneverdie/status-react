@@ -1,9 +1,6 @@
 (ns status-im.keycard.delete-key
-  (:require [status-im.multiaccounts.logout.core :as multiaccounts.logout]
-            [status-im.i18n.i18n :as i18n]
-            [status-im.navigation :as navigation]
+  (:require [status-im.navigation :as navigation]
             [status-im.utils.fx :as fx]
-            [taoensso.timbre :as log]
             [status-im.keycard.common :as common]))
 
 (fx/defn reset-card-pressed

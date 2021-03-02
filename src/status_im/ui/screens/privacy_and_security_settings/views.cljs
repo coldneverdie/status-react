@@ -16,8 +16,7 @@
 (views/defview privacy-and-security []
   (views/letsubs [{:keys [mnemonic preview-privacy? webview-allow-permission-requests?]} [:multiaccount]
                   supported-biometric-auth [:supported-biometric-auth]
-                  auth-method              [:auth-method]
-                  keycard?                 [:keycard-multiaccount?]]
+                  auth-method              [:auth-method]]
     [react/view {:flex 1 :background-color colors/white}
      [topbar/topbar {:title (i18n/label :t/privacy-and-security)}]
      [react/scroll-view {:padding-vertical 8}
