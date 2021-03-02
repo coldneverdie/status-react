@@ -114,36 +114,39 @@
          {:pin     pin
           :pairing pairing}}))}))
 
+(defn handle-account-removal [{:keys [db] :as cofx} keys-removed-from-card?]
+  (let [key-uid (get-in db [:multiaccount :key-uid])
+          instance-uid (get-in db [:keycard :application-info :instance-uid])
+          pairings (get-in db [:keycard :pairings])]
+      (fx/merge cofx
+                {:db                 (-> db
+                                        (update :multiaccounts/multiaccounts dissoc key-uid)
+                                        (assoc-in [:keycard :secrets] nil)
+                                        (update-in [:keycard :pairings] dissoc (keyword instance-uid))
+                                        (assoc-in [:keycard :whisper-public-key] nil)
+                                        (assoc-in [:keycard :wallet-address] nil)
+                                        (assoc-in [:keycard :application-info] nil)
+                                        (assoc-in [:keycard :pin] {:status      nil
+                                                                    :error-label nil
+                                                                    :on-verified nil}))
+                :keycard/persist-pairings (dissoc pairings (keyword instance-uid))
+                :utils/show-popup   {:title   (i18n/label (if keys-removed-from-card? :t/profile-deleted-title :t/database-reset-title))
+                                      :content (i18n/label (if keys-removed-from-card? :t/profile-deleted-keycard :t/database-reset-content))
+                                      :on-dismiss #(re-frame/dispatch [:logout])}}
+                (common/clear-on-card-connected)
+                (common/hide-connection-sheet)
+                (native-module/delete-multiaccount
+                key-uid
+                (fn [result]
+                  (let [{:keys [error]} (types/json->clj result)]
+                    (if-not (string/blank? error)
+                      (log/warn "[keycard] remove account: " error)
+                      (log/debug "[keycard] remove account ok"))))))))
+
 (fx/defn on-remove-key-success
   {:events [:keycard.callback/on-remove-key-success]}
-  [{:keys [db] :as cofx}]
-  (let [key-uid (get-in db [:multiaccount :key-uid])
-        instance-uid (get-in db [:keycard :application-info :instance-uid])
-        pairings (get-in db [:keycard :pairings])]
-    (fx/merge cofx
-              {:db                 (-> db
-                                       (update :multiaccounts/multiaccounts dissoc key-uid)
-                                       (assoc-in [:keycard :secrets] nil)
-                                       (update-in [:keycard :pairings] dissoc (keyword instance-uid))
-                                       (assoc-in [:keycard :whisper-public-key] nil)
-                                       (assoc-in [:keycard :wallet-address] nil)
-                                       (assoc-in [:keycard :application-info] nil)
-                                       (assoc-in [:keycard :pin] {:status      nil
-                                                                  :error-label nil
-                                                                  :on-verified nil}))
-               :keycard/persist-pairings (dissoc pairings (keyword instance-uid))
-               :utils/show-popup   {:title   ""
-                                    :content (i18n/label :t/card-reseted)
-                                    :on-dismiss #(re-frame/dispatch [:logout])}}
-              (common/clear-on-card-connected)
-              (common/hide-connection-sheet)
-              (native-module/delete-multiaccount
-               key-uid
-               (fn [result]
-                 (let [{:keys [error]} (types/json->clj result)]
-                   (if-not (string/blank? error)
-                     (log/warn "[keycard] remove account: " error)
-                     (log/debug "[keycard] remove account ok"))))))))
+  [cofx]
+  (handle-account-removal cofx true))
 
 (fx/defn on-remove-key-error
   {:events [:keycard.callback/on-remove-key-error]}
@@ -159,34 +162,8 @@
 
 (fx/defn on-unpair-and-delete-success
   {:events [:keycard.callback/on-unpair-and-delete-success]}
-  [{:keys [db] :as cofx}]
-  (let [key-uid (get-in db [:multiaccount :key-uid])
-        instance-uid (get-in db [:keycard :application-info :instance-uid])
-        pairings (get-in db [:keycard :pairings])]
-    (fx/merge cofx
-              {:db                 (-> db
-                                       (update :multiaccounts/multiaccounts dissoc key-uid)
-                                       (assoc-in [:keycard :secrets] nil)
-                                       (update-in [:keycard :pairings] dissoc (keyword instance-uid))
-                                       (assoc-in [:keycard :whisper-public-key] nil)
-                                       (assoc-in [:keycard :wallet-address] nil)
-                                       (assoc-in [:keycard :application-info] nil)
-                                       (assoc-in [:keycard :pin] {:status      nil
-                                                                  :error-label nil
-                                                                  :on-verified nil}))
-               :keycard/persist-pairings (dissoc pairings (keyword instance-uid))
-               :utils/show-popup   {:title   ""
-                                    :content (i18n/label :t/card-reseted)
-                                    :on-dismiss #(re-frame/dispatch [:logout])}}
-              (common/clear-on-card-connected)
-              (common/hide-connection-sheet)
-              (native-module/delete-multiaccount
-               key-uid
-               (fn [result]
-                 (let [{:keys [error]} (types/json->clj result)]
-                   (if-not (string/blank? error)
-                     (log/warn "[keycard] remove account: " error)
-                     (log/info "[keycard] remove account ok"))))))))
+  [cofx]
+  (handle-account-removal cofx false))
 
 (fx/defn on-unpair-and-delete-error
   {:events [:keycard.callback/on-unpair-and-delete-error]}
