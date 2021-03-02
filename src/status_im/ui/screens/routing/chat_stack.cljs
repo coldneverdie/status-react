@@ -25,11 +25,15 @@
 (defonce group-stack (navigation/create-stack))
 (defonce communities-stack (navigation/create-stack))
 
-(defn chat-chat-stack []
-  [stack {:initial-route-name    :chat
+(defn chat-stack []
+  [stack {:initial-route-name    :home
           :header-mode           :none
           :detachInactiveScreens false}
-   [{:name      :referral-enclav
+   [{:name      :home
+     :style     {:padding-bottom tabbar.styles/tabs-diff}
+     :component home/home
+     :options   {:tabBarVisible false}}
+    {:name      :referral-enclav
      :component referrals.public-chat/view}
     {:name      :chat
      :component chat/chat}
@@ -92,17 +96,17 @@
 
 (defonce caht-tabs (navigation/create-bottom-tabs))
 
-(defn chat-stack []
-  [caht-tabs {:initial-route-name :home
-              :header-mode        :none}
-   [{:name      :home
-     :style     {:padding-bottom tabbar.styles/tabs-diff}
-     :component home/home
-     :options   {:tabBarVisible false}}
-    {:name      :chat-chat-stack
-     :insets    {:top false}
-     :component chat-chat-stack
-     :options   {:tabBarVisible false}}]])
+#_(defn chat-stack []
+    [caht-tabs {:initial-route-name :home
+                :header-mode        :none}
+     [{:name      :home
+       :style     {:padding-bottom tabbar.styles/tabs-diff}
+       :component home/home
+       :options   {:tabBarVisible false}}
+      {:name      :chat-chat-stack
+       :insets    {:top false}
+       :component chat-chat-stack
+       :options   {:tabBarVisible false}}]])
 
 (defn new-group-chat []
   [group-stack {:header-mode        :none

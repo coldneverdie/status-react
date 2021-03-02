@@ -284,8 +284,6 @@
     [list/flat-list
      (merge
       pan-responder
-      (when platform/low-device?
-        {:initial-num-to-render 5})
       {:key-fn                       #(or (:message-id %) (:value %))
        :ref                          #(reset! messages-list-ref %)
        :header                       [list-header chat]
@@ -300,7 +298,8 @@
        :render-fn                    render-fn
        :on-viewable-items-changed    on-viewable-items-changed
        ;;TODO this is not really working in pair with inserting new messages because we stop inserting new messages
-       ;;if they outside the viewarea, but we load more here because end is reached
+       ;;if they outside the viewarea, but we load more here because end is reached,so its slowdown UI because we
+       ;;load and render 20 messages more, but we can't prevent this , because otherwise :on-end-reached will work wrong
        :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)

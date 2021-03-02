@@ -277,6 +277,20 @@
            identicon
            from outgoing]
     :as   message} content {:keys [modal close-modal]}]
+  [:<>
+   (when (and display-photo? first-in-group?)
+     [react/touchable-highlight {:on-press #(do (when modal (close-modal))
+                                                (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
+      [photos/member-photo from identicon]])
+   content])
+
+
+(defn message-content-wrapper-2
+  "Author, userpic and delivery wrapper"
+  [{:keys [first-in-group? display-photo? display-username?
+           identicon
+           from outgoing]
+    :as   message} content {:keys [modal close-modal]}]
   [react/view {:style               (style/message-wrapper message)
                :pointer-events      :box-none
                :accessibility-label :chat-item}
@@ -416,8 +430,9 @@
 
 (defmethod ->message constants/content-type-text
   [message {:keys [on-long-press modal] :as reaction-picker}]
+
   [message-content-wrapper message
-   [collapsible-text-message message on-long-press modal]
+   [render-parsed-text-with-timestamp message (-> message :content :parsed-text)]
    reaction-picker])
 
 (defmethod ->message constants/content-type-community
@@ -510,20 +525,21 @@
    [unknown-content-type message]])
 
 (defn chat-message [message space-keeper]
-  [reactions/with-reaction-picker
-   {:message         message
-    :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) (:chat-id message)])
-    :picker-on-open  (fn []
-                       (space-keeper true))
-    :picker-on-close (fn []
-                       (space-keeper false))
-    :send-emoji      (fn [{:keys [emoji-id]}]
-                       (re-frame/dispatch [::models.reactions/send-emoji-reaction
-                                           {:message-id (:message-id message)
-                                            :emoji-id   emoji-id}]))
-    :retract-emoji   (fn [{:keys [emoji-id emoji-reaction-id]}]
-                       (re-frame/dispatch [::models.reactions/send-emoji-reaction-retraction
-                                           {:message-id        (:message-id message)
-                                            :emoji-id          emoji-id
-                                            :emoji-reaction-id emoji-reaction-id}]))
-    :render          ->message}])
+  [->message message]
+  #_[reactions/with-reaction-picker
+     {:message         message
+      :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) (:chat-id message)])
+      :picker-on-open  (fn []
+                         (space-keeper true))
+      :picker-on-close (fn []
+                         (space-keeper false))
+      :send-emoji      (fn [{:keys [emoji-id]}]
+                         (re-frame/dispatch [::models.reactions/send-emoji-reaction
+                                             {:message-id (:message-id message)
+                                              :emoji-id   emoji-id}]))
+      :retract-emoji   (fn [{:keys [emoji-id emoji-reaction-id]}]
+                         (re-frame/dispatch [::models.reactions/send-emoji-reaction-retraction
+                                             {:message-id        (:message-id message)
+                                              :emoji-id          emoji-id
+                                              :emoji-reaction-id emoji-reaction-id}]))
+      :render          ->message}])
