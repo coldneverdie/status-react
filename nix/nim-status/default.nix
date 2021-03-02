@@ -43,8 +43,8 @@ let
         #endif
       '';
     in stdenv.mkDerivation {
-      buildInputs = [ pkgs.coreutils xcodeWrapper ];
       name = "${name}-ios";
+      buildInputs = [ pkgs.coreutils xcodeWrapper ];
       builder = writeScript "${name}-ios-builder.sh"
       ''
         source $stdenv/setup
