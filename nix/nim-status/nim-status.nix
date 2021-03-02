@@ -14,7 +14,7 @@ let
     fetchSubmodules = false;
   };
 
-  flags = callPackage ./getFlags.nix {platform = platform; arch = arch; fromNim = true;};
+  flags = callPackage ./getFlags.nix {inherit platform arch; fromNim = true;};
   nimBase = ./nimbase.h;
 in stdenv.mkDerivation rec {
   name = "nim-status-go_lib";

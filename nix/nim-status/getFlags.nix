@@ -87,12 +87,6 @@ let
     else throw "Unsupported platform!";
 
   toolPath = if isAndroid then androidToolPath else iosToolPath;
-  hostMap = {
-    "386" = "x86";
-    "arm" = "arm";
-    "arm64" = "aarch64";
-  };
-  hostFlag = if isAndroid then androidTarget else lib.getAttr arch hostMap;
 
   # Arg arch -> Nim arch
   nimCpuMap = {
@@ -109,10 +103,7 @@ in {
   "compiler" = compilerFlags;
   "linker" = linkerFlags;
   "vars" = compilerVars;
-  "host" = hostFlag;
   "isysroot" = isysroot;
-  "isAndroid" = isAndroid;
-  "isIOS" = isIOS;
   "toolPath" = toolPath;
   "nimCpu" = nimCpu;
   "nimPlatform" = nimPlatform;
