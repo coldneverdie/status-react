@@ -73,11 +73,14 @@
           {:db db}
           messages))
 
+(defn timeline-message? [db chat-id]
+  (and
+   (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
+   (when-let [pub-key (get-in db [:chats chat-id :profile-public-key])]
+     (contact.db/added? db pub-key))))
+
 (defn get-timeline-message [db chat-id message-js]
-  (when (and
-         (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
-         (when-let [pub-key (get-in db [:chats chat-id :profile-public-key])]
-           (contact.db/added? db pub-key)))
+  (when (timeline-message? db chat-id)
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
 (defn add-message [db timeline-message message-js chat-id message-id acc cursor-clock-value]
@@ -137,6 +140,28 @@
                           :cursor (chat.loading/clock-value->cursor clock-value)
                           :cursor-clock-value clock-value))})
       acc)))
+
+(defn reduce-js-statuses [db ^js message-js]
+  (let [chat-id (.-localChatId message-js)
+        profile-initialized (get-in db [:pagination-info chat-id :messages-initialized?])
+        timeline-message (timeline-message? db chat-id)]
+    (if (or profile-initialized timeline-message)
+      (let [{:keys [message-id] :as message} (data-store.messages/<-rpc (types/js->clj message-js))]
+        (cond-> db
+                profile-initialized
+                (update-in [:messages chat-id] assoc message-id message)
+                profile-initialized
+                (update-in [:message-lists chat-id] message-list/add message)
+                timeline-message
+                (update-in [:messages constants/timeline-chat-id] assoc message-id message)
+                timeline-message
+                (update-in [:message-lists constants/timeline-chat-id] message-list/add message)))
+      db)))
+
+(fx/defn process-statuses
+  {:events [:process-statuses]}
+  [{:keys [db]} statuses]
+  {:db (reduce reduce-js-statuses db statuses)})
 
 (defn receive-many [{:keys [db]} ^js response-js]
   ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10

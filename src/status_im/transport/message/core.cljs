@@ -122,7 +122,7 @@
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
                   (handle-filters-removed filters))))))
 
-(defn group-by-messages-and-update-counts [{:keys [current-chat-id db] :as acc} ^js message-js]
+(defn group-by-and-update-counts [{:keys [current-chat-id db] :as acc} ^js message-js]
   (let [chat-id (.-localChatId message-js)
         message-type (.-messageType message-js)
         from (.-from message-js)
@@ -130,6 +130,7 @@
         current (= current-chat-id chat-id)
         profile (models.chat/profile-chat? {:db db} chat-id)
         tx-hash (and (.-commandParameters message-js) (.-commandParameters.transactionHash message-js))]
+    (println chat-id profile)
     (cond-> acc
       current
       (update :messages conj message-js)
@@ -156,8 +157,8 @@
   {:events [:process-signal]}
   [{:keys [db] :as cofx} ^js response-js]
   (let [current-chat-id (:current-chat-id db)
-        {:keys [db messages transactions chats]}
-        (reduce group-by-messages-and-update-counts
+        {:keys [db messages transactions chats statuses]}
+        (reduce group-by-and-update-counts
                 {:db db :chats #{} :transactions #{} :statuses [] :messages []
                  :current-chat-id current-chat-id}
                 (.-messages response-js))]
@@ -172,6 +173,8 @@
     (fx/merge cofx
               {:db db
                :utils/dispatch-later (concat []
+                                             (when (seq statuses)
+                                               [{:ms 200 :dispatch [:process-statuses statuses]}])
                                              (when (seq transactions)
                                                (for [transaction-hash transactions]
                                                  {:ms 60 :dispatch [:watch-tx transaction-hash]}))
