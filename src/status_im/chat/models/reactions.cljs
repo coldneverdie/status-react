@@ -38,6 +38,7 @@
     {:db (update db :reactions (process-reactions (:chats db)) reactions)}))
 
 (fx/defn load-more-reactions
+  {:events [:load-more-reactions]}
   [{:keys [db]} cursor chat-id]
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
     (data-store.reactions/reactions-by-chat-id-rpc

@@ -179,9 +179,7 @@
       :on-press                  (fn []
                                    (re-frame/dispatch [:dismiss-keyboard])
                                    (re-frame/dispatch [:chat.ui/navigate-to-chat chat-id])
-                                   ;(reagent/flush)
-                                   (re-frame/dispatch [:search/home-filter-changed nil])
-                                   (utils.utils/set-timeout #(re-frame/dispatch [:chat.ui/mark-all-read-pressed chat-id]) 1000))
+                                   (re-frame/dispatch [:search/home-filter-changed nil]))
       :on-long-press             #(re-frame/dispatch [:bottom-sheet/show-sheet
                                                       {:content (fn []
                                                                   [sheets/actions home-item])}])}]))

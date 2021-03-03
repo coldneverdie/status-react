@@ -110,25 +110,23 @@
 
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
-  [{:keys [db] :as cofx} chat-id first-request]
+  [{:keys [db]} chat-id first-request]
   (when-let [session-id (get-in db [:pagination-info chat-id :messages-initialized?])]
     (when (and
            (not (get-in db [:pagination-info chat-id :all-loaded?]))
            (not (get-in db [:pagination-info chat-id :loading-messages?])))
       (let [cursor (get-in db [:pagination-info chat-id :cursor])]
         (when (or first-request cursor)
-          (let [load-messages-fx (merge
-                                  {:db (assoc-in db [:pagination-info chat-id :loading-messages?] true)}
-                                  (data-store.messages/messages-by-chat-id-rpc
-                                   chat-id
-                                   cursor
-                                   constants/default-number-of-messages
-                                   #(re-frame/dispatch [::messages-loaded chat-id session-id %])
-                                   #(re-frame/dispatch [::failed-loading-messages chat-id session-id %])))]
-            (fx/merge cofx
-                      load-messages-fx
-                      (reactions/load-more-reactions cursor chat-id)
-                      (mailserver/load-gaps-fx chat-id))))))))
+          (merge
+           {:db (assoc-in db [:pagination-info chat-id :loading-messages?] true)}
+           {:utils/dispatch-later [{:ms 100 :dispatch [:load-more-reactions cursor chat-id]}
+                                   {:ms 100 :dispatch [:load-gaps chat-id]}]}
+           (data-store.messages/messages-by-chat-id-rpc
+            chat-id
+            cursor
+            constants/default-number-of-messages
+            #(re-frame/dispatch [::messages-loaded chat-id session-id %])
+            #(re-frame/dispatch [::failed-loading-messages chat-id session-id %]))))))))
 
 (fx/defn load-messages
   [{:keys [db now] :as cofx} chat-id]
@@ -137,8 +135,8 @@
      ; reset chat first-not-visible-items state
       (chat.state/reset-visible-item)
       (fx/merge cofx
-                {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)}
-                (handle-mark-all-read chat-id)
+                {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)
+                 :utils/dispatch-later [{:ms 500 :dispatch [:chat.ui/mark-all-read-pressed chat-id]}]}
                 (load-more-messages chat-id true)))
     ;; We mark messages as seen in case we received them while on a different tab
     (handle-mark-all-read cofx chat-id)))

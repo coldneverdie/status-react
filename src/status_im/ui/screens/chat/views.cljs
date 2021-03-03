@@ -172,7 +172,7 @@
       [react/text {:style (when platform/android? {:scaleY -1})
                    :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (:text content)]
-      [react/view {:style (when platform/android? {:scaleY -1})
+      [react/view {:style {:scaleY -1}
                    :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (if (= type :datemark)
          [message-datemark/chat-datemark (:value message)]
@@ -310,7 +310,7 @@
                                                             (if platform/low-device? 500 200))))
 
        :on-scroll-to-index-failed    #()                    ;;don't remove this
-       :content-container-style      {:padding-top    (+ bottom-space 16)
+       :content-container-style      {:padding-top (+ bottom-space 16)
                                       :padding-bottom 16}
        :scroll-indicator-insets      {:top bottom-space}    ;;ios only
        :keyboard-dismiss-mode        :interactive
