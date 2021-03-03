@@ -70,8 +70,8 @@
                                             (when (or (not outgoing)
                                                       (and outgoing (= outgoing-status :sent)))
                                               (reset! actions act)
-                                              (get-picker-position ref on-open)))}]]
-         [reaction-row/message-reactions message reactions timeline]
+                                              (get-picker-position ref on-open)))}]
+          [reaction-row/message-reactions message reactions timeline]]
          (when @visible
            [rn/modal {:on-request-close on-close
                       :on-show          (fn []

@@ -37,7 +37,7 @@
                  {:align-self                       :flex-end
                   :position                         :absolute
                   :bottom                           9 ; 6 Bubble bottom, 3 message baseline
-                  (if (:rtl? content) :left :right) 12
+                  (if (:rtl? content) :left :right) 0
                   :flex-direction                   :row
                   :align-items                      :flex-end})
     (when (and outgoing justify-timestamp?)
@@ -270,31 +270,6 @@
         [react/touchable-highlight {:on-press #(re-frame/dispatch [:navigate-to :community {:community-id (:id community)}])}
          [react/text {:style {:text-align :center
                               :color colors/blue}} (i18n/label :t/view)]]]])))
-
-(defn message-content-wrapper-2
-  "Author, userpic and delivery wrapper"
-  [{:keys [first-in-group? display-photo? display-username?
-           identicon
-           from outgoing last-in-group? group-chat content-type]
-    :as   message} content {:keys [modal close-modal]}]
-  [react/view {:margin-top (if (and last-in-group? (or outgoing  (not group-chat))) 16 0)}
-   (when (and display-photo? first-in-group?)
-     [react/touchable-highlight {:style {:position :absolute :bottom 0 :left 20}
-                                 :on-press #(do (when modal (close-modal))
-                                                (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
-      [photos/member-photo from identicon]])
-   (when display-username?
-     [react/touchable-opacity {:style    {:position :absolute :top 0 :left 76}
-                               :on-press #(do (when modal (close-modal))
-                                              (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
-      ;;TODO refactor, make it simpler , too complex
-      [message-author-name from {:modal modal}]])
-
-   [react/view  {:margin-left 64 :margin-top (when display-username? 22)
-                 :margin-right 52}
-    [message-timestamp message true]
-    content]])
-
 
 (defn message-content-wrapper
   "Author, userpic and delivery wrapper"
@@ -534,7 +509,6 @@
    [unknown-content-type message]])
 
 (defn chat-message [message space-keeper]
-  #_[->message message]
   [reactions/with-reaction-picker
    {:message         message
     :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) (:chat-id message)])
