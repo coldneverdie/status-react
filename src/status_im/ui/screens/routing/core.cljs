@@ -2,7 +2,8 @@
   (:require ["react" :refer (useCallback useEffect)]
             ["react-native" :refer (BackHandler)]
             ["@react-navigation/native" :refer (NavigationContainer StackActions CommonActions useFocusEffect) :as react-navigation]
-            ["@react-navigation/stack" :refer (createStackNavigator TransitionPresets)]
+            ["@react-navigation/stack" :refer (TransitionPresets)]
+            ["react-native-screens/native-stack" :refer (createNativeStackNavigator)];
             ["@react-navigation/bottom-tabs" :refer (createBottomTabNavigator)]
             [reagent.core :as reagent]
             [cljs-bean.core :refer [bean]]
@@ -127,11 +128,11 @@
   (let [navigator (reagent/adapt-react-class (oget nav-object "Navigator"))
         screen    (get-screen nav-object)]
     (fn [props children]
-      (into [navigator props]
+      (into [navigator (update props :screenOptions merge {:headerShown false})]
             (mapv screen children)))))
 
 (defn create-stack []
-  (let [nav-obj (createStackNavigator)]
+  (let [nav-obj (createNativeStackNavigator)]
     (get-navigator nav-obj)))
 
 (defn create-bottom-tabs []

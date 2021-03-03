@@ -113,6 +113,7 @@
                                   :CommonActions       #js {}
                                   :StackActions        #js {}})
 (def react-navigation-stack #js {:createStackNavigator identity
+                                 :createNativeStackNavigator identity
                                  :TransitionPresets    #js {:ModalPresentationIOS #js {}}})
 (def react-navigation-bottom-tabs #js {:createBottomTabNavigator identity})
 
