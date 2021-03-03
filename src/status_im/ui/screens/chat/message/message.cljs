@@ -271,17 +271,13 @@
          [react/text {:style {:text-align :center
                               :color colors/blue}} (i18n/label :t/view)]]]])))
 
-(defn message-content-wrapper
+(defn message-content-wrapper-2
   "Author, userpic and delivery wrapper"
   [{:keys [first-in-group? display-photo? display-username?
            identicon
            from outgoing last-in-group? group-chat content-type]
     :as   message} content {:keys [modal close-modal]}]
-  [react/view {:margin-top                 (if (and last-in-group?
-                                                    (or outgoing
-                                                        (not group-chat)))
-                                             16
-                                             0)}
+  [react/view {:margin-top (if (and last-in-group? (or outgoing  (not group-chat))) 16 0)}
    (when (and display-photo? first-in-group?)
      [react/touchable-highlight {:style {:position :absolute :bottom 0 :left 20}
                                  :on-press #(do (when modal (close-modal))
@@ -294,32 +290,13 @@
       ;;TODO refactor, make it simpler , too complex
       [message-author-name from {:modal modal}]])
 
-   [react/view (merge
-                {:margin-left 64 :margin-top (when display-username? 22)
-                 :margin-right 72}
-                {:border-top-left-radius     16
-                 :border-top-right-radius    16
-                 :border-bottom-right-radius 16
-                 :border-bottom-left-radius  16
-                 :padding-top                6
-                 :padding-horizontal         12
-                 :border-radius              8}
-                (if outgoing
-                  {:border-bottom-right-radius 4}
-                  {:border-bottom-left-radius 4})
-
-                (cond
-                  (= content-type constants/content-type-system-text) nil
-                  outgoing                                            {:background-color colors/blue}
-                  :else                                               {:background-color colors/blue-light})
-
-                (when (= content-type constants/content-type-emoji)
-                  {:flex-direction :row}))
+   [react/view  {:margin-left 64 :margin-top (when display-username? 22)
+                 :margin-right 52}
     [message-timestamp message true]
     content]])
 
 
-(defn message-content-wrapper-2
+(defn message-content-wrapper
   "Author, userpic and delivery wrapper"
   [{:keys [first-in-group? display-photo? display-username?
            identicon
@@ -343,8 +320,7 @@
                                                 (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
         [message-author-name from {:modal modal}]])
      ;;MESSAGE CONTENT
-     [react/view
-      content]
+     content
      [link-preview/link-preview-wrapper (:links (:content message)) outgoing false]]]
    ; delivery status
    [react/view (style/delivery-status outgoing)
@@ -464,9 +440,8 @@
 
 (defmethod ->message constants/content-type-text
   [message {:keys [on-long-press modal] :as reaction-picker}]
-
   [message-content-wrapper message
-   [render-parsed-text-with-timestamp message (-> message :content :parsed-text)]
+   [collapsible-text-message message on-long-press modal]
    reaction-picker])
 
 (defmethod ->message constants/content-type-community
@@ -559,21 +534,21 @@
    [unknown-content-type message]])
 
 (defn chat-message [message space-keeper]
-  [->message message]
-  #_[reactions/with-reaction-picker
-     {:message         message
-      :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) (:chat-id message)])
-      :picker-on-open  (fn []
-                         (space-keeper true))
-      :picker-on-close (fn []
-                         (space-keeper false))
-      :send-emoji      (fn [{:keys [emoji-id]}]
-                         (re-frame/dispatch [::models.reactions/send-emoji-reaction
-                                             {:message-id (:message-id message)
-                                              :emoji-id   emoji-id}]))
-      :retract-emoji   (fn [{:keys [emoji-id emoji-reaction-id]}]
-                         (re-frame/dispatch [::models.reactions/send-emoji-reaction-retraction
-                                             {:message-id        (:message-id message)
-                                              :emoji-id          emoji-id
-                                              :emoji-reaction-id emoji-reaction-id}]))
-      :render          ->message}])
+  #_[->message message]
+  [reactions/with-reaction-picker
+   {:message         message
+    :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) (:chat-id message)])
+    :picker-on-open  (fn []
+                       (space-keeper true))
+    :picker-on-close (fn []
+                       (space-keeper false))
+    :send-emoji      (fn [{:keys [emoji-id]}]
+                       (re-frame/dispatch [::models.reactions/send-emoji-reaction
+                                           {:message-id (:message-id message)
+                                            :emoji-id   emoji-id}]))
+    :retract-emoji   (fn [{:keys [emoji-id emoji-reaction-id]}]
+                       (re-frame/dispatch [::models.reactions/send-emoji-reaction-retraction
+                                           {:message-id        (:message-id message)
+                                            :emoji-id          emoji-id
+                                            :emoji-reaction-id emoji-reaction-id}]))
+    :render          ->message}])

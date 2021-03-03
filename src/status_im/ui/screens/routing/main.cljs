@@ -57,8 +57,9 @@
   (views/letsubs [logged-in? [:multiaccount/logged-in?]]
     [main-stack (merge {:header-mode :none}
                        ;; https://github.com/react-navigation/react-navigation/issues/6520
-                       (when platform/ios?
-                         {:mode :modal}))
+                       (if platform/ios?
+                         {:mode :modal}
+                         {:screenOptions {:stackPresentation :modal}}))
      (concat
       [(if logged-in?
          {:name      :tabs
@@ -152,6 +153,7 @@
         :component  bookmarks/new-bookmark}
        {:name       :profile
         :transition :presentation-ios
+        :stackPresentation :modal
         :insets     {:bottom true}
         :component  contact/profile}
        {:name       :buy-crypto

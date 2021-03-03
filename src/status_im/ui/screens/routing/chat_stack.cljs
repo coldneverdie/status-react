@@ -94,7 +94,7 @@
                     :top    false}
         :component membership/membership}]))])
 
-(defonce caht-tabs (navigation/create-bottom-tabs))
+#_(defonce caht-tabs (navigation/create-bottom-tabs))
 
 #_(defn chat-stack []
     [caht-tabs {:initial-route-name :home
