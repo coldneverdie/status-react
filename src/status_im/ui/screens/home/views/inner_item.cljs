@@ -177,8 +177,8 @@
                                   [unviewed-indicator home-item]]
       :on-press                  #(do
                                     (re-frame/dispatch [:dismiss-keyboard])
-                                    (re-frame/dispatch-sync [:chat.ui/navigate-to-chat chat-id])
-                                    (reagent/flush)
+                                    (re-frame/dispatch [:chat.ui/navigate-to-chat chat-id])
+                                    ;(reagent/flush)
                                     (re-frame/dispatch [:search/home-filter-changed nil])
                                     (re-frame/dispatch [:chat.ui/mark-all-read-pressed chat-id]))
       :on-long-press             #(re-frame/dispatch [:bottom-sheet/show-sheet

@@ -337,7 +337,7 @@
        :header                       [list-header chat]
        :footer                       [list-footer chat]
        :data                         messages
-       :render-data                  {:exp                @uiperf/render-perf-mode
+       :render-data                  {:exp                true
                                       :group-chat         group-chat
                                       :public?            public?
                                       :current-public-key current-public-key
@@ -351,7 +351,8 @@
        :on-end-reached               (fn []
                                        (if @state/scrolling
                                          (re-frame/dispatch [:chat.ui/load-more-messages chat-id])
-                                         (utils/set-timeout #(re-frame/dispatch [:chat.ui/load-more-messages chat-id]) (if platform/low-device? 500 200))))
+                                         (utils/set-timeout #(re-frame/dispatch [:chat.ui/load-more-messages chat-id])
+                                                            (if platform/low-device? 500 200))))
 
        :on-scroll-to-index-failed    #()                    ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
@@ -360,6 +361,7 @@
        :keyboard-dismiss-mode        :interactive
        :keyboard-should-persist-taps :handled
        :onMomentumScrollBegin        #(reset! state/scrolling true)
+       ;TODO when we scroll and close the screen we need to check if it is set to false
        :onMomentumScrollEnd          #(reset! state/scrolling false)
        ;;TODO https://github.com/facebook/react-native/issues/30034
        :inverted                     (when platform/ios? true)
