@@ -169,67 +169,23 @@
                  {:keys [group-chat public? current-public-key space-keeper chat-id modal close-modal]}]
   (let [n (re-frame.interop/now)]
     (if @uiperf/render-perf-mode
-      (reagent/create-element (.-Text react-native) #js {:style (when platform/android? {:scaleY -1})
-                                                         :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
-       (:text content))
-      (reagent/create-element (.-View react-native) #js {:style (when platform/android? {:scaleY -1})
-                                                         :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+      [react/text {:style (when platform/android? {:scaleY -1})
+                   :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
+       (:text content)]
+      [react/view {:style  {:scaleY -1}
+                   :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (if (= type :datemark)
-         (reagent/as-element [message-datemark/chat-datemark (:value message)])
+         [message-datemark/chat-datemark (:value message)]
          (if (= type :gap)
-           (reagent/as-element [gap/gap message idx messages-list-ref false chat-id])
+           [gap/gap message idx messages-list-ref false chat-id]
            ; message content
-           (reagent/create-element (.-View react-native) #js {:style {:marginTop  (if (and last-in-group?
-                                                                                           (or outgoing
-                                                                                               (not group-chat)))
-                                                                                    16
-                                                                                    0)}}
-            (when (and display-photo? first-in-group?)
-              (reagent/as-element [react/touchable-highlight {:style {:position :absolute :bottom 0 :left 20}
-                                                              :on-press #(do (when modal (close-modal))
-                                                                             (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
-                                   [photos/member-photo from identicon]]))
-            (when display-username?
-              (reagent/as-element [react/touchable-opacity {:style    {:position :absolute :top 0 :left 76}
-                                                            :on-press #(do (when modal (close-modal))
-                                                                           (re-frame/dispatch [:chat.ui/show-profile-without-adding-contact from]))}
-                                   ;;TODO refactor, make it simpler , too complex
-                                   [message/message-author-name from {:modal modal}]]))
-
-            (reagent/as-element [react/view (merge
-                                             {:margin-left 64 :margin-top (when display-username? 22)
-                                              :margin-right 72}
-                                             {:border-top-left-radius     16
-                                              :border-top-right-radius    16
-                                              :border-bottom-right-radius 16
-                                              :border-bottom-left-radius  16
-                                              :padding-top                6
-                                              :padding-horizontal         12
-                                              :border-radius              8}
-                                             (if outgoing
-                                               {:border-bottom-right-radius 4}
-                                               {:border-bottom-left-radius 4})
-
-                                             (cond
-                                               (= content-type constants/content-type-system-text) nil
-                                               outgoing                                            {:background-color colors/blue}
-                                               :else                                               {:background-color colors/blue-light})
-
-                                             (when (= content-type constants/content-type-emoji)
-                                               {:flex-direction :row}))
-                                 [message/message-timestamp message true]
-                                 (if (= content-type constants/content-type-text)
-                                   [message/render-parsed-text-with-timestamp message (-> message :content :parsed-text)])]))
-
-           #_[message/chat-message
-              (assoc message
-                     :incoming-group (and group-chat (not outgoing))
-                     :group-chat group-chat
-                     :public? public?
-                     :current-public-key current-public-key)
-              space-keeper]))))))
-
-
+           [message/chat-message
+            (assoc message
+                   :incoming-group (and group-chat (not outgoing))
+                   :group-chat group-chat
+                   :public? public?
+                   :current-public-key current-public-key)
+            space-keeper]))])))
 
 (defn bottom-sheet [input-bottom-sheet]
   (case input-bottom-sheet
@@ -337,8 +293,7 @@
        :header                       [list-header chat]
        :footer                       [list-footer chat]
        :data                         messages
-       :render-data                  {:exp                true
-                                      :group-chat         group-chat
+       :render-data                  {:group-chat         group-chat
                                       :public?            public?
                                       :current-public-key current-public-key
                                       :space-keeper       space-keeper
