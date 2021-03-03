@@ -14,7 +14,8 @@
             [status-im.utils.contenthash :as contenthash]
             [status-im.utils.core :as utils]
             [status-im.utils.datetime :as time]
-            [reagent.core :as reagent]))
+            [reagent.core :as reagent]
+            [status-im.utils.utils :as utils.utils]))
 
 (defn mention-element [from]
   @(re-frame/subscribe [:contacts/contact-name-by-identity from]))
@@ -175,12 +176,12 @@
                                    [message-content-text {:content      (:content last-message)
                                                           :content-type (:content-type last-message)}]]
                                   [unviewed-indicator home-item]]
-      :on-press                  #(do
-                                    (re-frame/dispatch [:dismiss-keyboard])
-                                    (re-frame/dispatch [:chat.ui/navigate-to-chat chat-id])
-                                    ;(reagent/flush)
-                                    (re-frame/dispatch [:search/home-filter-changed nil])
-                                    (re-frame/dispatch [:chat.ui/mark-all-read-pressed chat-id]))
+      :on-press                  (fn []
+                                   (re-frame/dispatch [:dismiss-keyboard])
+                                   (re-frame/dispatch [:chat.ui/navigate-to-chat chat-id])
+                                   ;(reagent/flush)
+                                   (re-frame/dispatch [:search/home-filter-changed nil])
+                                   (utils.utils/set-timeout #(re-frame/dispatch [:chat.ui/mark-all-read-pressed chat-id]) 1000))
       :on-long-press             #(re-frame/dispatch [:bottom-sheet/show-sheet
                                                       {:content (fn []
                                                                   [sheets/actions home-item])}])}]))
