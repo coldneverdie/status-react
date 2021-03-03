@@ -172,7 +172,7 @@
       [react/text {:style (when platform/android? {:scaleY -1})
                    :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (:text content)]
-      [react/view {:style  {:scaleY -1}
+      [react/view {:style (when platform/android? {:scaleY -1})
                    :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
        (if (= type :datemark)
          [message-datemark/chat-datemark (:value message)]
