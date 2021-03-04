@@ -123,6 +123,7 @@
                                        (update :multiaccounts/multiaccounts dissoc key-uid)
                                        (assoc-in [:keycard :secrets] nil)
                                        (update-in [:keycard :pairings] dissoc (keyword instance-uid))
+                                       (update-in [:keycard :pairings] dissoc instance-uid)
                                        (assoc-in [:keycard :whisper-public-key] nil)
                                        (assoc-in [:keycard :wallet-address] nil)
                                        (assoc-in [:keycard :application-info] nil)
