@@ -85,13 +85,13 @@
                                                    [:multiaccounts.ui/webview-permission-requests-switched
                                                     ((complement boolean) webview-allow-permission-requests?)])}])
       [quo/list-item
-        {:size                :small
-         :title               (i18n/label :t/show-profile-pictures-to)
-         :accessibility-label :show-profile-pictures-to
-         :accessory           :text
-         :accessory-text      (get titles profile-pictures-show-to)
-         :on-press            #(re-frame/dispatch [:navigate-to :privacy-and-security-profile-pic-show-to])
-         :chevron             true}]
+       {:size                :small
+        :title               (i18n/label :t/show-profile-pictures-to)
+        :accessibility-label :show-profile-pictures-to
+        :accessory           :text
+        :accessory-text      (get titles profile-pictures-show-to)
+        :on-press            #(re-frame/dispatch [:navigate-to :privacy-and-security-profile-pic-show-to])
+        :chevron             true}]
       ;; TODO(rasom): remove this condition when kk support will be added
       (when-not keycard?
         [separator])
