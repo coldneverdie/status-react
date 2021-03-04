@@ -18,8 +18,7 @@
             [status-im.ui.screens.profile.group-chat.views :as profile.group-chat]
             [status-im.ui.components.tabbar.styles :as tabbar.styles]
             [status-im.ui.screens.stickers.views :as stickers]
-            [status-im.utils.config :as config]
-            [status-im.ui.screens.chat.uiperfview :as uiperf]))
+            [status-im.utils.config :as config]))
 
 (defonce stack (navigation/create-stack))
 (defonce group-stack (navigation/create-stack))
@@ -27,20 +26,14 @@
 
 (defn chat-stack []
   [stack {:initial-route-name    :home
-          :header-mode           :none
-          :detachInactiveScreens false}
+          :header-mode           :none}
    [{:name      :home
      :style     {:padding-bottom tabbar.styles/tabs-diff}
-     :component home/home
-     :options   {:tabBarVisible false}}
+     :component home/home}
     {:name      :referral-enclav
      :component referrals.public-chat/view}
     {:name      :chat
      :component chat/chat}
-    {:name      :perf
-     :component uiperf/view}
-
-
     {:name      :group-chat-profile
      :insets    {:top false}
      :component profile.group-chat/group-chat-profile}
@@ -93,20 +86,6 @@
         :insets    {:bottom true
                     :top    false}
         :component membership/membership}]))])
-
-#_(defonce caht-tabs (navigation/create-bottom-tabs))
-
-#_(defn chat-stack []
-    [caht-tabs {:initial-route-name :home
-                :header-mode        :none}
-     [{:name      :home
-       :style     {:padding-bottom tabbar.styles/tabs-diff}
-       :component home/home
-       :options   {:tabBarVisible false}}
-      {:name      :chat-chat-stack
-       :insets    {:top false}
-       :component chat-chat-stack
-       :options   {:tabBarVisible false}}]])
 
 (defn new-group-chat []
   [group-stack {:header-mode        :none

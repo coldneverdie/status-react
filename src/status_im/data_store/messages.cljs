@@ -2,8 +2,7 @@
   (:require [clojure.set :as clojure.set]
             [status-im.ethereum.json-rpc :as json-rpc]
             [status-im.utils.fx :as fx]
-            [taoensso.timbre :as log]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [taoensso.timbre :as log]))
 
 (defn ->rpc [{:keys [content] :as message}]
   (cond-> message
@@ -61,10 +60,7 @@
   {::json-rpc/call [{:method     (json-rpc/call-ext-method "chatMessages")
                      :params     [chat-id cursor limit]
                      :on-success (fn [result]
-                                   (on-success (update result :messages #(let [n (re-frame.interop/now)
-                                                                               res (map <-rpc %)]
-                                                                           (uiperf/add-log "<-rpc" (- (re-frame.interop/now) n))
-                                                                           res))))
+                                   (on-success (update result :messages #(map <-rpc %))))
                      :on-failure on-failure}]})
 
 (defn mark-seen-rpc [chat-id ids on-success]

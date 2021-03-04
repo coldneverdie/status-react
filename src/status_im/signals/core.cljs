@@ -64,7 +64,7 @@
       "subscriptions.data" (ethereum.subscriptions/handle-signal cofx (js->clj event-js :keywordize-keys true))
       "subscriptions.error" (ethereum.subscriptions/handle-error cofx (js->clj event-js :keywordize-keys true))
       "whisper.filter.added" (transport.filters/handle-negotiated-filter cofx (js->clj event-js :keywordize-keys true))
-      "messages.new" (transport.message/process-signal cofx event-js)
+      "messages.new" (transport.message/sanitize-messages-and-process-response cofx event-js)
       "wallet" (ethereum.subscriptions/new-wallet-event cofx (js->clj event-js :keywordize-keys true))
       "local-notifications" (local-notifications/process cofx event-js)
       (log/debug "Event " type " not handled"))))

@@ -3,7 +3,6 @@
             ["react-native" :refer (BackHandler)]
             ["@react-navigation/native" :refer (NavigationContainer StackActions CommonActions useFocusEffect) :as react-navigation]
             ["@react-navigation/stack" :refer (createStackNavigator TransitionPresets)]
-            ["react-native-screens/native-stack" :refer (createNativeStackNavigator)];
             ["@react-navigation/bottom-tabs" :refer (createBottomTabNavigator)]
             [reagent.core :as reagent]
             [cljs-bean.core :refer [bean]]

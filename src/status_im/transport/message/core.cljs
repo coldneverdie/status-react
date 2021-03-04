@@ -16,31 +16,7 @@
             [status-im.utils.types :as types]
             [status-im.constants :as constants]
             [status-im.multiaccounts.model :as multiaccounts.model]
-            [clojure.string :as string]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
-
-(fx/defn handle-contacts [cofx contacts]
-  (models.contact/ensure-contacts cofx contacts))
-
-(fx/defn handle-community [cofx community]
-  (models.communities/handle-community cofx community))
-
-(fx/defn handle-request-to-join-community [cofx request]
-  (models.communities/handle-request-to-join cofx request))
-
-(fx/defn handle-reactions [cofx reactions]
-  (models.reactions/receive-signal cofx reactions))
-
-(fx/defn handle-invitations [cofx invitations]
-  (models.group/handle-invitations cofx invitations))
-
-(fx/defn handle-filters [cofx filters]
-  (models.filters/handle-filters cofx filters))
-
-(fx/defn handle-filters-removed [cofx filters]
-  (models.filters/handle-filters-removed cofx filters))
-
-(def debug? ^boolean js/goog.DEBUG)
+            [clojure.string :as string]))
 
 (fx/defn process-response
   {:events [:process-response]}
@@ -57,6 +33,21 @@
         ^js invitations (.-invitations response-js)]
 
     (cond
+
+      (seq messages)
+      (models.message/receive-many cofx response-js)
+
+      (seq chats)
+      (do
+        (js-delete response-js "chats")
+        (fx/merge cofx
+                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
+                  (models.chat/ensure-chats (map #(-> %
+                                                      (data-store.chats/<-rpc)
+                                                      ;;TODO why here?
+                                                      (dissoc :unviewed-messages-count))
+                                                 (types/js->clj chats)))))
+
       (seq installations)
       (let [installations-clj (types/js->clj installations)]
         (js-delete response-js "installations")
@@ -69,60 +60,49 @@
         (js-delete response-js "contacts")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-contacts (map data-store.contacts/<-rpc contacts-clj))))
+                  (models.contact/ensure-contacts (map data-store.contacts/<-rpc contacts-clj))))
 
       (seq communities)
       (let [community (.pop communities)]
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-community (types/js->clj community))))
+                  (models.communities/handle-community (types/js->clj community))))
       (seq requests-to-join-community)
       (let [request (.pop requests-to-join-community)]
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [::process response-js]}]}
-                  (handle-request-to-join-community (types/js->clj request))))
-      (seq chats)
-      (do
-        (js-delete response-js "chats")
-        (fx/merge cofx
-                  {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (models.chat/ensure-chats (map #(-> %
-                                                      (data-store.chats/<-rpc)
-                                                      ;;TODO why here?
-                                                      (dissoc :unviewed-messages-count))
-                                                 (types/js->clj chats)))))
-
-      (seq messages)
-      (models.message/receive-many cofx response-js)
+                  (models.communities/handle-request-to-join (types/js->clj request))))
 
       (seq emoji-reactions)
       (let [reactions (types/js->clj emoji-reactions)]
         (js-delete response-js "emojiReactions")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-reactions (map data-store.reactions/<-rpc reactions))))
+                  (models.reactions/receive-signal (map data-store.reactions/<-rpc reactions))))
 
       (seq invitations)
       (let [invitations (types/js->clj invitations)]
         (js-delete response-js "invitations")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-invitations (map data-store.invitations/<-rpc invitations))))
+                  (models.group/handle-invitations (map data-store.invitations/<-rpc invitations))))
       (seq filters)
       (let [filters (types/js->clj filters)]
         (js-delete response-js "filters")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-filters filters)))
+                  (models.filters/handle-filters filters)))
 
       (seq removed-filters)
       (let [removed-filters (types/js->clj removed-filters)]
         (js-delete response-js "removedFilters")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  (handle-filters-removed filters))))))
+                  (models.filters/handle-filters-removed filters))))))
 
-(defn group-by-and-update-counts [{:keys [current-chat-id db] :as acc} ^js message-js]
+(defn group-by-and-update-unviewed-counts
+  "group messages by current chat, profile updates, transactions and update unviewed counters in db for not curent chats"
+  [{:keys [current-chat-id db] :as acc} ^js message-js]
   (let [chat-id (.-localChatId message-js)
         message-type (.-messageType message-js)
         from (.-from message-js)
@@ -130,7 +110,7 @@
         current (= current-chat-id chat-id)
         profile (models.chat/profile-chat? {:db db} chat-id)
         tx-hash (and (.-commandParameters message-js) (.-commandParameters.transactionHash message-js))]
-    (println chat-id profile)
+
     (cond-> acc
       current
       (update :messages conj message-js)
@@ -153,33 +133,37 @@
       :always
       (update :chats conj chat-id))))
 
-(fx/defn process-signal
-  {:events [:process-signal]}
+(defn sort-js-messages!
+  "sort messages, so we can start process latest first,in that case we only need to process frist 20 and drop others"
+  [response-js messages]
+  (if (seq messages)
+    (set! (.-messages response-js)
+          (.sort (to-array messages)
+                 (fn [a b]
+                   (- (.-clock b) (.-clock a)))))
+    (js-delete response-js "messages")))
+
+(fx/defn sanitize-messages-and-process-response
+  "before processing we want to filter and sort messages, so we can process first only messages which will be showed"
+  {:events [:sanitize-messages-and-process-response]}
   [{:keys [db] :as cofx} ^js response-js]
   (let [current-chat-id (:current-chat-id db)
         {:keys [db messages transactions chats statuses]}
-        (reduce group-by-and-update-counts
+        (reduce group-by-and-update-unviewed-counts
                 {:db db :chats #{} :transactions #{} :statuses [] :messages []
                  :current-chat-id current-chat-id}
                 (.-messages response-js))]
-    ;;we want to sort and process only messages for current chat
-    (uiperf/add-log "MESSAGES" (count (.-messages response-js)) (count messages))
-    (if (seq messages)
-      (set! (.-messages response-js)
-            (.sort (to-array messages)
-                   (fn [a b]
-                     (- (.-clock b) (.-clock a)))))
-      (js-delete response-js "messages"))
+    (sort-js-messages! response-js messages)
     (fx/merge cofx
               {:db db
                :utils/dispatch-later (concat []
                                              (when (seq statuses)
-                                               [{:ms 200 :dispatch [:process-statuses statuses]}])
+                                               [{:ms 100 :dispatch [:process-statuses statuses]}])
                                              (when (seq transactions)
                                                (for [transaction-hash transactions]
-                                                 {:ms 60 :dispatch [:watch-tx transaction-hash]}))
+                                                 {:ms 100 :dispatch [:watch-tx transaction-hash]}))
                                              (when (seq chats)
-                                               [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))}
+                                               [{:ms 100 :dispatch [:chat/join-times-messages-checked chats]}]))}
               (process-response response-js))))
 
 (fx/defn remove-hash

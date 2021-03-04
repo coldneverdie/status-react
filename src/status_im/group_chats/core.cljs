@@ -22,7 +22,7 @@
                               first
                               (data-store.chats/<-rpc))]
     (fx/merge cofx
-              {:dispatch [:process-response response]}
+              {:dispatch [:sanitize-messages-and-process-response response]}
               #(if (get-in % [:db :chats chat-id :is-active])
                  (models.chat/navigate-to-chat % chat-id)
                  (navigation/navigate-to-cofx % :home {})))))
@@ -161,7 +161,7 @@
     {:db             (assoc-in db [:chat/memberships current-chat-id] nil)
      ::json-rpc/call [{:method     (json-rpc/call-ext-method "sendGroupChatInvitationRequest")
                        :params     [nil current-chat-id invitation-admin message]
-                       :on-success #(re-frame/dispatch [:process-response %])}]}))
+                       :on-success #(re-frame/dispatch [:sanitize-messages-and-process-response %])}]}))
 
 (fx/defn send-group-chat-membership-rejection
   "Send group chat membership rejection"
@@ -169,7 +169,7 @@
   [cofx invitation-id]
   {::json-rpc/call [{:method     (json-rpc/call-ext-method "sendGroupChatInvitationRejection")
                      :params     [nil invitation-id]
-                     :on-success #(re-frame/dispatch [:process-response %])}]})
+                     :on-success #(re-frame/dispatch [:sanitize-messages-and-process-response %])}]})
 
 (fx/defn handle-invitations
   [{db :db} invitations]

@@ -39,8 +39,7 @@
             [status-im.chat.models.mentions :as mentions]
             [status-im.notifications.core :as notifications]
             [status-im.utils.currency :as currency]
-            [clojure.set :as clojure.set]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [clojure.set :as clojure.set]))
 
 ;; TOP LEVEL ===========================================================================================================
 
@@ -934,15 +933,11 @@
     (re-frame/subscribe [:chats/all-loaded? chat-id])
     (re-frame/subscribe [:chats/public? chat-id])])
  (fn [[message-list messages messages-gaps range all-loaded? public?]]
-   ;;TODO (perf) we need to move all these to status-go
-   (let [n (re-frame.interop/now)
-         res (-> (models.message-list/->seq message-list)
-                 (chat.db/add-datemarks)
-                 (hydrate-messages messages)
-                 (chat.db/add-gaps messages-gaps range all-loaded? public?))]
-     (uiperf/add-log "SUBS" (- (re-frame.interop/now) n))
-     res)))
-
+   ;;TODO (perf)
+   (-> (models.message-list/->seq message-list)
+       (chat.db/add-datemarks)
+       (hydrate-messages messages)
+       (chat.db/add-gaps messages-gaps range all-loaded? public?))))
 
 (re-frame/reg-sub
  :chats/timeline-messages-stream

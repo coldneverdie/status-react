@@ -1,17 +1,13 @@
 (ns status-im.chat.models.loading
   (:require [re-frame.core :as re-frame]
             [status-im.constants :as constants]
-            [status-im.ui.screens.chat.state :as chat.state]
             [status-im.data-store.chats :as data-store.chats]
             [status-im.data-store.messages :as data-store.messages]
-            [status-im.mailserver.core :as mailserver]
             [status-im.utils.fx :as fx]
-            [status-im.chat.models.reactions :as reactions]
             [status-im.chat.models.message-list :as message-list]
             [taoensso.timbre :as log]
             [status-im.ethereum.json-rpc :as json-rpc]
-            [clojure.string :as string]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [clojure.string :as string]))
 
 (defn cursor->clock-value
   [^js cursor]
@@ -40,6 +36,7 @@
   (data-store.chats/fetch-chats-rpc cofx {:on-success
                                           #(re-frame/dispatch
                                             [:chats-list/load-success %])}))
+
 (fx/defn handle-failed-loading-messages
   {:events [::failed-loading-messages]}
   [{:keys [db]} current-chat-id _ err]
@@ -66,47 +63,44 @@
   (when-not (and (get-in db [:pagination-info chat-id :messages-initialized?])
                  (not= session-id
                        (get-in db [:pagination-info chat-id :messages-initialized?])))
-    (let [n (re-frame.interop/now)
-          res (let [already-loaded-messages (get-in db [:messages chat-id])
-                    ;; We remove those messages that are already loaded, as we might get some duplicates
-                    {:keys [all-messages new-messages senders]}
-                    (reduce (fn [{:keys [all-messages] :as acc}
-                                 {:keys [message-id alias from]
-                                  :as   message}]
-                              (cond-> acc
-                                (and (not (string/blank? alias))
-                                     (not (get-in db [:chats chat-id :users from])))
-                                (update :senders assoc from message)
+    (let [already-loaded-messages (get-in db [:messages chat-id])
+          ;; We remove those messages that are already loaded, as we might get some duplicates
+          {:keys [all-messages new-messages senders]}
+          (reduce (fn [{:keys [all-messages] :as acc}
+                       {:keys [message-id alias from]
+                        :as   message}]
+                    (cond-> acc
+                      (and (not (string/blank? alias))
+                           (not (get-in db [:chats chat-id :users from])))
+                      (update :senders assoc from message)
 
-                                (nil? (get all-messages message-id))
-                                (update :new-messages conj message)
+                      (nil? (get all-messages message-id))
+                      (update :new-messages conj message)
 
-                                :always
-                                (update :all-messages assoc message-id message)))
-                            {:all-messages already-loaded-messages
-                             :senders      {}
-                             :new-messages []}
-                            messages)
-                    current-clock-value (get-in db [:pagination-info chat-id :cursor-clock-value])
-                    clock-value (when cursor (cursor->clock-value cursor))]
-                {:dispatch [:chat/add-senders-to-chat-users (vals senders)]
-                 :db       (-> db
-                               (update-in [:pagination-info chat-id :cursor-clock-value]
-                                          #(if (and (seq cursor) (or (not %) (< clock-value %)))
-                                             clock-value
-                                             %))
+                      :always
+                      (update :all-messages assoc message-id message)))
+                  {:all-messages already-loaded-messages
+                   :senders      {}
+                   :new-messages []}
+                  messages)
+          current-clock-value (get-in db [:pagination-info chat-id :cursor-clock-value])
+          clock-value (when cursor (cursor->clock-value cursor))]
+      {:dispatch [:chat/add-senders-to-chat-users (vals senders)]
+       :db       (-> db
+                     (update-in [:pagination-info chat-id :cursor-clock-value]
+                                #(if (and (seq cursor) (or (not %) (< clock-value %)))
+                                   clock-value
+                                   %))
 
-                               (update-in [:pagination-info chat-id :cursor]
-                                          #(if (or (empty? cursor) (not current-clock-value) (< clock-value current-clock-value))
-                                             cursor
-                                             %))
-                               (assoc-in [:pagination-info chat-id :loading-messages?] false)
-                               (assoc-in [:messages chat-id] all-messages)
-                               (update-in [:message-lists chat-id] message-list/add-many new-messages)
-                               (assoc-in [:pagination-info chat-id :all-loaded?]
-                                         (empty? cursor)))})]
-      (uiperf/add-log "LOADED MORE" (- (re-frame.interop/now) n))
-      res)))
+                     (update-in [:pagination-info chat-id :cursor]
+                                #(if (or (empty? cursor) (not current-clock-value) (< clock-value current-clock-value))
+                                   cursor
+                                   %))
+                     (assoc-in [:pagination-info chat-id :loading-messages?] false)
+                     (assoc-in [:messages chat-id] all-messages)
+                     (update-in [:message-lists chat-id] message-list/add-many new-messages)
+                     (assoc-in [:pagination-info chat-id :all-loaded?]
+                               (empty? cursor)))})))
 
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
@@ -130,13 +124,8 @@
 
 (fx/defn load-messages
   [{:keys [db now] :as cofx} chat-id]
-  (if-not (get-in db [:pagination-info chat-id :messages-initialized?])
-    (do
-     ; reset chat first-not-visible-items state
-      (chat.state/reset-visible-item)
-      (fx/merge cofx
-                {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)
-                 :utils/dispatch-later [{:ms 500 :dispatch [:chat.ui/mark-all-read-pressed chat-id]}]}
-                (load-more-messages chat-id true)))
-    ;; We mark messages as seen in case we received them while on a different tab
-    (handle-mark-all-read cofx chat-id)))
+  (when-not (get-in db [:pagination-info chat-id :messages-initialized?])
+    (fx/merge cofx
+              {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)
+               :utils/dispatch-later [{:ms 500 :dispatch [:chat.ui/mark-all-read-pressed chat-id]}]}
+              (load-more-messages chat-id true))))

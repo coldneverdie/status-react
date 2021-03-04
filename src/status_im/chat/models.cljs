@@ -19,7 +19,8 @@
             [status-im.add-new.db :as new-public-chat.db]
             [status-im.mailserver.topics :as mailserver.topics]
             [status-im.mailserver.constants :as mailserver.constants]
-            [status-im.chat.models.loading :as loading]))
+            [status-im.chat.models.loading :as loading]
+            [status-im.ui.screens.chat.state :as chat.state]))
 
 (defn chats []
   (:chats (types/json->clj (js/require "./chats.js"))))
@@ -229,6 +230,15 @@
            (update :messages dissoc chat-id)
            (update :message-lists dissoc chat-id)
            (update :pagination-info dissoc chat-id))})
+
+(fx/defn close-chat
+  {:events [:close-chat]}
+  [{:keys [db] :as cofx} chat-id]
+  (chat.state/reset-visible-item)
+  (fx/merge cofx
+            {:db (dissoc db :current-chat-id)}
+            (offload-messages chat-id)
+            (navigation/navigate-to-cofx :home {})))
 
 (fx/defn remove-chat
   "Removes chat completely from app, producing all necessary effects for that"

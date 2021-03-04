@@ -1,19 +1,14 @@
 (ns status-im.chat.models.message-list
   (:require [status-im.constants :as constants]
             [status-im.utils.datetime :as time]
-            ["functional-red-black-tree" :as rb-tree]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            ["functional-red-black-tree" :as rb-tree]))
 
 (defn- add-datemark [{:keys [whisper-timestamp] :as msg}]
   ;;TODO this is slow
-  (assoc msg :datemark (if @uiperf/render-perf-mode
-                         ""
-                         (time/day-relative whisper-timestamp))))
+  (assoc msg :datemark (time/day-relative whisper-timestamp)))
 
 (defn- add-timestamp [{:keys [whisper-timestamp] :as msg}]
-  (assoc msg :timestamp-str (if @uiperf/render-perf-mode
-                              ""
-                              (time/timestamp->time whisper-timestamp))))
+  (assoc msg :timestamp-str (time/timestamp->time whisper-timestamp)))
 
 (defn prepare-message [{:keys [message-id
                                clock-value
@@ -174,10 +169,7 @@
     (update-message tree prepared-message)))
 
 (defn add [message-list message]
-  (let [n (re-frame.interop/now)
-        res (insert-message (or message-list (rb-tree compare-fn)) (prepare-message message))]
-    (uiperf/add-log "ADD" (- (re-frame.interop/now) n)  (and message-list (.-length message-list)))
-    res))
+  (insert-message (or message-list (rb-tree compare-fn)) (prepare-message message)))
 
 (defn add-many [message-list messages]
   (reduce add

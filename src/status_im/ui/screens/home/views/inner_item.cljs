@@ -13,9 +13,7 @@
             [status-im.ui.components.icons.icons :as icons]
             [status-im.utils.contenthash :as contenthash]
             [status-im.utils.core :as utils]
-            [status-im.utils.datetime :as time]
-            [reagent.core :as reagent]
-            [status-im.utils.utils :as utils.utils]))
+            [status-im.utils.datetime :as time]))
 
 (defn mention-element [from]
   @(re-frame/subscribe [:contacts/contact-name-by-identity from]))

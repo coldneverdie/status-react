@@ -83,9 +83,9 @@
   (when (timeline-message? db chat-id)
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
-(defn add-message [db timeline-message message-js chat-id message-id acc cursor-clock-value]
+(defn add-message [db message-js chat-id message-id acc cursor-clock-value]
   (let [{:keys [alias replace from clock-value] :as message}
-        (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
+        (data-store.messages/<-rpc (types/js->clj message-js))]
     (if (message-loaded? db chat-id message-id)
       ;; If the message is already loaded, it means it's an update, that
       ;; happens when a message that was missing a reply had the reply
@@ -117,12 +117,7 @@
         clock-value (.-clock message-js)
         message-id (.-id message-js)
         current-chat-id (:current-chat-id db)
-        cursor-clock-value (get-in db [:pagination-info current-chat-id :cursor-clock-value])
-        timeline-message (get-timeline-message db chat-id message-js)
-        ;;add timeline message
-        {:keys [db] :as acc} (if timeline-message
-                               (add-timeline-message acc chat-id message-id timeline-message)
-                               acc)]
+        cursor-clock-value (get-in db [:pagination-info current-chat-id :cursor-clock-value])]
     ;;ignore not opened chats and earlier clock
     (if (and (get-in db [:pagination-info chat-id :messages-initialized?])
              ;;TODO why do we need this ?
@@ -130,9 +125,12 @@
       (if (or (not @view.state/first-not-visible-item)
               (<= (:clock-value @view.state/first-not-visible-item)
                   clock-value))
-        (add-message db timeline-message message-js chat-id message-id acc cursor-clock-value)
+        (add-message db message-js chat-id message-id acc cursor-clock-value)
         ;; Not in the current view, set all-loaded to false
         ;; and offload to db and update cursor if necessary
+        ;;TODO if we'll offload messages , it will conflict with end reached, so probably if we reached the end of visible area,
+        ;; we need to drop other messages with (< clock-value cursor-clock-value) from response-js so we don't update
+        ;; :cursor-clock-value because it will be changed when we loadMore message
         {:db (cond-> (assoc-in db [:pagination-info chat-id :all-loaded?] false)
                (> clock-value cursor-clock-value)
                ;;TODO cut older messages from messages-list
@@ -141,6 +139,28 @@
                           :cursor-clock-value clock-value))})
       acc)))
 
+(defn receive-many [{:keys [db]} ^js response-js]
+  (let [current-chat-id (:current-chat-id db)
+        messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 3 10))
+        {:keys [db chats senders]}
+        (reduce reduce-js-messages
+                {:db db :chats #{} :senders {} :transactions #{}}
+                messages-js)]
+        ;;TODO we need to drop all messages from ]
+    ;;we want to render new messages as soon as possible
+    ;;so we dispatch later all other events which can be handled async
+    {:db (assoc-in db [:pagination-info current-chat-id :processing?]
+                   (> (count (.-messages response-js)) 0))
+
+     :utils/dispatch-later
+     (concat [{:ms 20 :dispatch [:process-response response-js]}]
+             (when (and current-chat-id
+                        (get chats current-chat-id)
+                        (not (chat-model/profile-chat? {:db db} current-chat-id)))
+               [{:ms 100 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
+             (when (seq senders)
+               [{:ms 100 :dispatch [:chat/add-senders-to-chat-users (vals senders)]}]))}))
+
 (defn reduce-js-statuses [db ^js message-js]
   (let [chat-id (.-localChatId message-js)
         profile-initialized (get-in db [:pagination-info chat-id :messages-initialized?])
@@ -148,41 +168,20 @@
     (if (or profile-initialized timeline-message)
       (let [{:keys [message-id] :as message} (data-store.messages/<-rpc (types/js->clj message-js))]
         (cond-> db
-                profile-initialized
-                (update-in [:messages chat-id] assoc message-id message)
-                profile-initialized
-                (update-in [:message-lists chat-id] message-list/add message)
-                timeline-message
-                (update-in [:messages constants/timeline-chat-id] assoc message-id message)
-                timeline-message
-                (update-in [:message-lists constants/timeline-chat-id] message-list/add message)))
+          profile-initialized
+          (update-in [:messages chat-id] assoc message-id message)
+          profile-initialized
+          (update-in [:message-lists chat-id] message-list/add message)
+          timeline-message
+          (update-in [:messages constants/timeline-chat-id] assoc message-id message)
+          timeline-message
+          (update-in [:message-lists constants/timeline-chat-id] message-list/add message)))
       db)))
 
 (fx/defn process-statuses
   {:events [:process-statuses]}
   [{:keys [db]} statuses]
   {:db (reduce reduce-js-statuses db statuses)})
-
-(defn receive-many [{:keys [db]} ^js response-js]
-  ;; we use 10 here , because of slow devices, and flatlist initrenderitem number is 10
-  (let [current-chat-id (:current-chat-id db)
-        messages-js ^js (.splice (.-messages response-js) 0 (if platform/low-device? 3 10))
-        {:keys [db chats senders]}
-        (reduce reduce-js-messages
-                {:db db :chats #{} :senders {} :transactions #{}}
-                messages-js)]
-    ;;we want to render new messages as soon as possible
-    ;;so we dispatch later all other events which can be handled async
-    {:utils/dispatch-later
-     (concat [{:ms 20 :dispatch [:process-response response-js]}]
-             (when (and current-chat-id
-                        (get chats current-chat-id)
-                        (not (chat-model/profile-chat? {:db db} current-chat-id)))
-               [{:ms 30 :dispatch [:chat/mark-all-as-read (:current-chat-id db)]}])
-             (when (seq senders)
-               [{:ms 40 :dispatch [:chat/add-senders-to-chat-users (vals senders)]}]))
-     :db (assoc-in db [:pagination-info current-chat-id :processing?]
-                   (> (count (.-messages response-js)) 0))}))
 
 (fx/defn update-db-message-status
   [{:keys [db] :as cofx} chat-id message-id status]

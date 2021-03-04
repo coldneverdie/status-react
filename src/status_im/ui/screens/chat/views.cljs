@@ -32,25 +32,18 @@
             [clojure.string :as string]
             [status-im.constants :as constants]
             [status-im.utils.platform :as platform]
-            [status-im.ui.screens.chat.uiperf :as uiperf]
-            ["react-native" :as react-native]
-            [status-im.ui.screens.chat.photos :as photos]
             [status-im.utils.utils :as utils]))
 
 (defn topbar [current-chat]
   [topbar/topbar
    {:content           [toolbar-content/toolbar-content-view current-chat]
-    :navigation        {:on-press #(do
-                                     (re-frame/dispatch [:offload-messages (:chat-id current-chat)])
-                                     (re-frame/dispatch [:set :current-chat-id nil])
-                                     (re-frame/dispatch [:navigate-to :home]))}
+    :navigation        {:on-press #(re-frame/dispatch [:close-chat (:chat-id current-chat)])}
     :right-accessories [{:icon                :main-icons/more
                          :accessibility-label :chat-menu-button
-                         :on-press
-                         #(re-frame/dispatch [:bottom-sheet/show-sheet
-                                              {:content (fn []
-                                                          [sheets/actions current-chat])
-                                               :height  256}])}]}])
+                         :on-press            #(re-frame/dispatch [:bottom-sheet/show-sheet
+                                                                   {:content (fn []
+                                                                               [sheets/actions current-chat])
+                                                                    :height  256}])}]}])
 
 (defn invitation-requests [chat-id admins]
   (let [current-pk @(re-frame/subscribe [:multiaccount/public-key])
@@ -159,33 +152,6 @@
                 (when (and first-not-visible
                            (= :message (:type first-not-visible)))
                   first-not-visible))))))
-    ;(println "VIEWABLWE" (count (.-viewableItems e)) (:clock-value @state/first-not-visible-item))))
-
-(defn render-fn [{:keys [outgoing type content content-type display-photo? first-in-group? last-in-group?
-                         display-username? from identicon]
-                  :as message}
-                 idx
-                 _
-                 {:keys [group-chat public? current-public-key space-keeper chat-id modal close-modal]}]
-  (let [n (re-frame.interop/now)]
-    (if @uiperf/render-perf-mode
-      [react/text {:style (when platform/android? {:scaleY -1})
-                   :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
-       (:text content)]
-      [react/view {:style {:scaleY -1}
-                   :onLayout #(uiperf/add-log "layout" (- (re-frame.interop/now) n))}
-       (if (= type :datemark)
-         [message-datemark/chat-datemark (:value message)]
-         (if (= type :gap)
-           [gap/gap message idx messages-list-ref false chat-id]
-           ; message content
-           [message/chat-message
-            (assoc message
-                   :incoming-group (and group-chat (not outgoing))
-                   :group-chat group-chat
-                   :public? public?
-                   :current-public-key current-public-key)
-            space-keeper]))])))
 
 (defn bottom-sheet [input-bottom-sheet]
   (case input-bottom-sheet
@@ -279,6 +245,24 @@
   (when (= chat-type constants/private-group-chat-type)
     [react/view {:style (when platform/android? {:scaleY -1})}
      [chat.group/group-chat-footer chat-id invitation-admin]]))
+
+(defn render-fn [{:keys [outgoing type] :as message}
+                 idx
+                 _
+                 {:keys [group-chat public? current-public-key space-keeper chat-id]}]
+  [react/view {:style (when platform/android? {:scaleY -1})}
+   (if (= type :datemark)
+     [message-datemark/chat-datemark (:value message)]
+     (if (= type :gap)
+       [gap/gap message idx messages-list-ref false chat-id]
+       ; message content
+       [message/chat-message
+        (assoc message
+               :incoming-group (and group-chat (not outgoing))
+               :group-chat group-chat
+               :public? public?
+               :current-public-key current-public-key)
+        space-keeper]))])
 
 (defn messages-view
   [{:keys [chat bottom-space pan-responder space-keeper]}]

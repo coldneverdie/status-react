@@ -7,8 +7,7 @@
             [status-im.utils.money :as money]
             [status-im.utils.types :as types]
             [status-im.utils.utils :as utils]
-            [taoensso.timbre :as log]
-            [status-im.ui.screens.chat.uiperf :as uiperf]))
+            [taoensso.timbre :as log]))
 
 (def json-rpc-api
   {"eth_call" {}
@@ -201,8 +200,7 @@
 (defn call
   [{:keys [method params on-success on-error js-response] :as arg}]
   (if-let [method-options (json-rpc-api method)]
-    (let [n (re-frame.interop/now)
-          params (or params [])
+    (let [params (or params [])
           {:keys [id on-result subscription?]
            :or {on-result identity
                 id 1}} method-options
@@ -224,7 +222,6 @@
                                       [method params]
                                       params)})
          (fn [response]
-           (uiperf/add-log method "response " (- (re-frame.interop/now) n))
            (if (string/blank? response)
              (on-error {:message "Blank response"})
              (let [response-js (types/json->js response)]
@@ -236,12 +233,7 @@
                      (types/js->clj (.-result response-js)) on-success])
                    (on-success (on-result (if js-response
                                             (.-result response-js)
-                                            (let [n (re-frame.interop/now)
-                                                  res  (types/js->clj (.-result response-js))]
-                                              (uiperf/add-log method "js->clj" (- (re-frame.interop/now) n))
-                                              res))))))))))))
-
-
+                                            (types/js->clj (.-result response-js)))))))))))))
     (log/warn "method" method "not found" arg)))
 
 (defn eth-call

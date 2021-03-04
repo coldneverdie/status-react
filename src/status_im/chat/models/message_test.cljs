@@ -2,15 +2,16 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [status-im.chat.models.message :as message]
             [status-im.chat.models.message-list :as models.message-list]
+            ;[status-im.chat.models.loading :as loading]
             [status-im.utils.datetime :as time]))
 
-;;TODO fix
+;;TODO REWRITE
 #_(deftest add-received-message-test
     (with-redefs [message/add-message (constantly :added)]
       (let [chat-id "chat-id"
             clock-value 10
             cursor-clock-value (dec clock-value)
-            cursor (chat-loading/clock-value->cursor cursor-clock-value)
+            cursor (loading/clock-value->cursor cursor-clock-value)
             cofx {:now 0
                   :db {:current-chat-id chat-id
                        :all-loaded? true
@@ -108,40 +109,29 @@
               (is (= cursor-clock-value (get-in result [:db :chats chat-id :cursor-clock-value])))
               (is (= cursor (get-in result [:db :chats chat-id :cursor])))))))))
 
-;;TODO fix
-#_(deftest message-loaded?
-    (testing "it returns false when it's not in loaded message"
-      (is (not (#'status-im.chat.models.message/message-loaded? {:db {:chats {"a" {}}}}
-                                                                {:message-id "message-id"
-                                                                 :from "a"
-                                                                 :clock-value 1
-                                                                 :chat-id "a"}))))
-    (testing "it returns true when it's already in the loaded message"
-      (is (#'status-im.chat.models.message/message-loaded? {:db
-                                                            {:messages {"a" {"message-id" {}}}}}
-                                                           {:message-id "message-id"
-                                                            :from "a"
-                                                            :clock-value 1
-                                                            :chat-id "a"}))))
-#_(deftest earlier-than-deleted-at?
-    (testing "it returns true when the clock-value is the same as the deleted-clock-value in chat"
-      (is (#'status-im.chat.models.message/earlier-than-deleted-at? {:db {:chats {"a" {:deleted-at-clock-value 1}}}}
-                                                                    {:message-id "message-id"
-                                                                     :from "a"
-                                                                     :clock-value 1
-                                                                     :chat-id "a"})))
-    (testing "it returns false when the clock-value is greater than the deleted-clock-value in chat"
-      (is (not (#'status-im.chat.models.message/earlier-than-deleted-at? {:db {:chats {"a" {:deleted-at-clock-value 1}}}}
-                                                                         {:message-id "message-id"
-                                                                          :from "a"
-                                                                          :clock-value 2
-                                                                          :chat-id "a"}))))
-    (testing "it returns true when the clock-value is less than the deleted-clock-value in chat"
-      (is (#'status-im.chat.models.message/earlier-than-deleted-at? {:db {:chats {"a" {:deleted-at-clock-value 1}}}}
-                                                                    {:message-id "message-id"
-                                                                     :from "a"
-                                                                     :clock-value 0
-                                                                     :chat-id "a"}))))
+(deftest message-loaded?
+  (testing "it returns false when it's not in loaded message"
+    (is (not (#'status-im.chat.models.message/message-loaded? {:messages {"a" {}}} "a" "message-id"))))
+  (testing "it returns true when it's already in the loaded message"
+    (is (#'status-im.chat.models.message/message-loaded? {:messages {"a" {"message-id" {}}}} "a" "message-id"))))
+
+(deftest earlier-than-deleted-at?
+  (testing "it returns true when the clock-value is the same as the deleted-clock-value in chat"
+    (is (#'status-im.chat.models.message/earlier-than-deleted-at?
+         {:chats {"a" {:deleted-at-clock-value 1}}}
+         "a"
+         1)))
+  (testing "it returns false when the clock-value is greater than the deleted-clock-value in chat"
+    (is (not (#'status-im.chat.models.message/earlier-than-deleted-at?
+              {:chats {"a" {:deleted-at-clock-value 1}}}
+              "a"
+              2))))
+
+  (testing "it returns true when the clock-value is less than the deleted-clock-value in chat"
+    (is (#'status-im.chat.models.message/earlier-than-deleted-at?
+         {:chats {"a" {:deleted-at-clock-value 1}}}
+         "a"
+         0))))
 
 (deftest delete-message
   (with-redefs [time/day-relative (constantly "day-relative")
