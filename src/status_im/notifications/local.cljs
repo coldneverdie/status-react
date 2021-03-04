@@ -42,17 +42,7 @@
   [{:keys [title message icon user-info channel-id type]
     :as   notification
     :or   {channel-id "status-im-notifications"}}]
-  (pn-android/present-local-notification
-   (merge {:channelId channel-id
-           :title     title
-           :message   message
-           :showBadge false}
-          (when user-info
-            {:userInfo (bean/->js user-info)})
-          (when icon
-            {:largeIconUrl (:uri (react/resolve-asset-source icon))})
-          (when (= type "message")
-            notification))))
+  (pn-android/present-local-notification notification))
 
 (defn handle-notification-press [{{deep-link :deepLink} :userInfo
                                   interaction           :userInteraction}]
@@ -169,7 +159,7 @@
   ([cofx {:keys [bodyType] :as notification}]
    (assoc
     (case bodyType
-      "message"     (create-message-notification cofx notification)
+      "message"     notification
       "transaction" (create-transfer-notification notification)
       nil)
     :body-type bodyType)))
@@ -191,16 +181,3 @@
   (if platform/ios?
     {::local-push-ios evt}
     (local-notification-android cofx evt)))
-
-(defn handle []
-  (fn [^js message]
-    (let [evt (types/json->clj (.-event message))]
-      (js/Promise.
-       (fn [on-success on-error]
-         (try
-           (when (= "local-notifications" (:type evt))
-             (re-frame/dispatch [::local-notification-android (:event evt)]))
-           (on-success)
-           (catch :default e
-             (log/warn "failed to handle background notification" e)
-             (on-error e))))))))
