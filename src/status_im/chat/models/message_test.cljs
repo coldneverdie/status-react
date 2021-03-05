@@ -2,112 +2,110 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [status-im.chat.models.message :as message]
             [status-im.chat.models.message-list :as models.message-list]
-            ;[status-im.chat.models.loading :as loading]
-            [status-im.utils.datetime :as time]))
+            [status-im.chat.models.loading :as loading]
+            [status-im.utils.datetime :as time]
+            [status-im.ui.screens.chat.state :as view.state]))
 
-;;TODO REWRITE
-#_(deftest add-received-message-test
-    (with-redefs [message/add-message (constantly :added)]
-      (let [chat-id "chat-id"
-            clock-value 10
-            cursor-clock-value (dec clock-value)
-            cursor (loading/clock-value->cursor cursor-clock-value)
-            cofx {:now 0
-                  :db {:current-chat-id chat-id
-                       :all-loaded? true
-                       :chats {chat-id {:cursor cursor
-                                        :cursor-clock-value cursor-clock-value}}}}
-            message {:chat-id     chat-id
-                     :clock-value clock-value
-                     :alias       "alias"
-                     :name        "name"
-                     :identicon   "identicon"
-                     :from        "from"}]
-        (testing "not current-chat"
-          (is (nil? (message/add-received-message
-                     cofx
-                     message))))
-        ;; <- cursor
-        ;; <- message
-        ;; <- top of the chat
-        (testing "there's no hidden item"
+(deftest add-received-message-test
+  (with-redefs [message/add-message #(identity %1)]
+    (let [chat-id "chat-id"
+          clock-value 10
+          cursor-clock-value (dec clock-value)
+          cursor (loading/clock-value->cursor cursor-clock-value)
+          cofx {:now 0
+                :db {:current-chat-id chat-id
+                     :pagination-info {chat-id {:messages-initialized? true
+                                                :cursor cursor
+                                                :cursor-clock-value cursor-clock-value}}}}
+          message #js {:localChatId chat-id
+                       :clock       clock-value
+                       :alias       "alias"
+                       :name        "name"
+                       :identicon   "identicon"
+                       :from        "from"}]
+      ;; <- cursor
+      ;; <- message
+      ;; <- top of the chat
+      (testing "there's no hidden item"
+        (with-redefs [view.state/first-not-visible-item (atom nil)]
           (is (= {:db {:current-chat-id "chat-id",
-                       :all-loaded?     true,
-                       :chats
+                       :pagination-info
                        {"chat-id"
-                        {:cursor
+                        {:messages-initialized? true
+                         :cursor
                          "00000000000000000000000000000000000000000000000000090x0000000000000000000000000000000000000000000000000000000000000000",
-                         :cursor-clock-value 9,
-                         :users
-                         {"from" {:alias              "alias",
-                                  :name               "name",
-                                  :identicon          "identicon",
-                                  :public-key         "from"
-                                  :nickname           nil
-                                  :searchable-phrases ["alias" "name"]}}}}}}
-                 (message/add-received-message
-                  cofx
-                  message))))
-        ;; <- cursor
-        ;; <- first-hidden-item
-        ;; <- message
-        ;; <- top of the chat
-        (testing "the hidden item has a clock value less than the current"
+                         :cursor-clock-value 9}}}}
+                 (dissoc (message/receive-many
+                          cofx
+                          #js {:messages (to-array [message])})
+                         :utils/dispatch-later)))))
+      ;; <- cursor
+      ;; <- first-hidden-item
+      ;; <- message
+      ;; <- top of the chat
+      (testing "the hidden item has a clock value less than the current"
+        (with-redefs [view.state/first-not-visible-item (atom {:clock-value (dec clock-value)})]
           (is (= {:db {:current-chat-id "chat-id",
-                       :all-loaded?     true,
-                       :chats
+                       :pagination-info
                        {"chat-id"
-                        {:cursor
+                        {:messages-initialized? true
+                         :cursor
                          "00000000000000000000000000000000000000000000000000090x0000000000000000000000000000000000000000000000000000000000000000",
-                         :cursor-clock-value 9,
-                         :users
-                         {"from" {:alias              "alias",
-                                  :name               "name",
-                                  :identicon          "identicon",
-                                  :public-key         "from"
-                                  :nickname           nil
-                                  :searchable-phrases ["alias" "name"]}}}}}}
-                 (message/add-received-message
-                  cofx
-                  message))))
-        ;; <- cursor
-        ;; <- message
-        ;; <- first-hidden-item
-        ;; <- top of the chat
-        (testing "the message falls between the first-hidden-item and cursor"
-          (let [result (message/add-received-message
-                        cofx
-                        message)]
+                         :cursor-clock-value 9}}}}
+                 (dissoc (message/receive-many
+                          cofx
+                          #js {:messages (to-array [message])})
+                         :utils/dispatch-later)))))
+      ;; <- cursor
+      ;; <- message
+      ;; <- first-hidden-item
+      ;; <- top of the chat
+      (testing "the message falls between the first-hidden-item and cursor"
+        (with-redefs [view.state/first-not-visible-item (atom {:clock-value (inc clock-value)})]
+          (let [result (dissoc (message/receive-many
+                                cofx
+                                #js {:messages (to-array [message])})
+                               :utils/dispatch-later)]
             (testing "it sets all-loaded? to false"
-              (is (not (get-in result [:db :chats chat-id :all-loaded?]))))
+              (is (not (get-in result [:db :pagination-info chat-id :all-loaded?]))))
             (testing "it updates cursor-clock-value & cursor"
-              (is (= clock-value (get-in result [:db :chats chat-id :cursor-clock-value])))
-              (is (= (chat-loading/clock-value->cursor clock-value) (get-in result [:db :chats chat-id :cursor]))))))
-        ;; <- message
-        ;; <- first-hidden-item
-        ;; <- top of the chat
-        (testing "the message falls between the first-hidden-item and cursor is nil"
-          (let [result (message/add-received-message
-                        (update-in cofx [:db :chats chat-id] dissoc :cursor :cursor-clock-value)
-                        message)]
+              (is (= clock-value (get-in result [:db :pagination-info chat-id :cursor-clock-value])))
+              (is (= (loading/clock-value->cursor clock-value) (get-in result [:db :pagination-info chat-id :cursor])))))))
+      ;; <- message
+      ;; <- first-hidden-item
+      ;; <- top of the chat
+      (testing "the message falls between the first-hidden-item and cursor is nil"
+        (with-redefs [view.state/first-not-visible-item (atom {:clock-value (inc clock-value)})]
+          (let [result (dissoc (message/receive-many
+                                (update-in cofx [:db :pagination-info chat-id] dissoc :cursor :cursor-clock-value)
+                                #js {:messages (to-array [message])})
+                               :utils/dispatch-later)]
             (testing "it sets all-loaded? to false"
-              (is (not (get-in result [:db :chats chat-id :all-loaded?]))))
+              (is (not (get-in result [:db :pagination-info chat-id :all-loaded?]))))
             (testing "it updates cursor-clock-value & cursor"
-              (is (= clock-value (get-in result [:db :chats chat-id :cursor-clock-value])))
-              (is (= (chat-loading/clock-value->cursor clock-value) (get-in result [:db :chats chat-id :cursor]))))))
-        ;; <- message
-        ;; <- cursor
-        ;; <- first-hidden-item
-        ;; <- top of the chat
-        (testing "the message falls before both the first-hidden-item and cursor"
-          (let [result (message/add-received-message
-                        cofx
-                        (update message :clock-value #(- % 2)))]
+              (is (= clock-value (get-in result [:db :pagination-info chat-id :cursor-clock-value])))
+              (is (= (loading/clock-value->cursor clock-value) (get-in result [:db :pagination-info chat-id :cursor])))))))
+      ;; <- message
+      ;; <- cursor
+      ;; <- first-hidden-item
+      ;; <- top of the chat
+      (testing "the message falls before both the first-hidden-item and cursor"
+        (with-redefs [view.state/first-not-visible-item (atom {:clock-value (inc clock-value)})]
+          (let [message #js {:localChatId chat-id
+                             :clock       (- clock-value 2)
+                             :alias       "alias"
+                             :name        "name"
+                             :identicon   "identicon"
+                             :from        "from"}
+                result (dissoc (message/receive-many
+                                cofx
+                                #js {:messages (to-array [message])})
+                               :utils/dispatch-later)]
             (testing "it sets all-loaded? to false"
-              (is (not (get-in result [:db :chats chat-id :all-loaded?]))))
+              (is (not (get-in result [:db :pagination-info chat-id :all-loaded?]))))
             (testing "it does not update cursor-clock-value & cursor"
-              (is (= cursor-clock-value (get-in result [:db :chats chat-id :cursor-clock-value])))
-              (is (= cursor (get-in result [:db :chats chat-id :cursor])))))))))
+              (is (= cursor-clock-value (get-in result [:db :pagination-info chat-id :cursor-clock-value])))
+              (is (= cursor (get-in result [:db :pagination-info chat-id :cursor]))))))))))
 
 (deftest message-loaded?
   (testing "it returns false when it's not in loaded message"

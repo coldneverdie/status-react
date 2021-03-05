@@ -83,7 +83,7 @@
   (when (timeline-message? db chat-id)
     (data-store.messages/<-rpc (types/js->clj message-js))))
 
-(defn add-message [db message-js chat-id message-id acc cursor-clock-value]
+(defn add-message [{:keys [db] :as acc} message-js chat-id message-id cursor-clock-value]
   (let [{:keys [alias replace from clock-value] :as message}
         (data-store.messages/<-rpc (types/js->clj message-js))]
     (if (message-loaded? db chat-id message-id)
@@ -125,7 +125,7 @@
       (if (or (not @view.state/first-not-visible-item)
               (<= (:clock-value @view.state/first-not-visible-item)
                   clock-value))
-        (add-message db message-js chat-id message-id acc cursor-clock-value)
+        (add-message acc message-js chat-id message-id cursor-clock-value)
         ;; Not in the current view, set all-loaded to false
         ;; and offload to db and update cursor if necessary
         ;;TODO if we'll offload messages , it will conflict with end reached, so probably if we reached the end of visible area,
@@ -146,11 +146,9 @@
         (reduce reduce-js-messages
                 {:db db :chats #{} :senders {} :transactions #{}}
                 messages-js)]
-        ;;TODO we need to drop all messages from ]
     ;;we want to render new messages as soon as possible
     ;;so we dispatch later all other events which can be handled async
-    {:db (assoc-in db [:pagination-info current-chat-id :processing?]
-                   (> (count (.-messages response-js)) 0))
+    {:db db
 
      :utils/dispatch-later
      (concat [{:ms 20 :dispatch [:process-response response-js]}]
